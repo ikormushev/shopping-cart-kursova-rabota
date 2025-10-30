@@ -3,10 +3,9 @@ spring:
     virtual:
       enabled: true
   datasource:
-    url: jdbc:postgresql://db:5432/${POSTGRES_DB}?currentSchema=${APP_SCHEMA}
-
-    username: ${APP_DB_USER}
-    password: ${APP_DB_PASSWORD}
+    url: jdbc:postgresql://localhost:5432/shopping-cart?currentSchema=shopping_cart
+    username: shopping_cart_app
+    password: localapppass
 
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -19,4 +18,4 @@ spring:
 
   flyway:
     enabled: true
-    schemas: ${APP_SCHEMA}
+    schemas: shopping_cart

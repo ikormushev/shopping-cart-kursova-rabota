@@ -27,15 +27,18 @@ services:
     container_name: shopping-cart-migrator
     command: migrate
     volumes:
-      - ./src/main/resources/db/migration:/flyway/sql
+      - ./flyway_migrations:/flyway/sql
+
+
     env_file:
       - .env
     environment:
-      FLYWAY_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}?currentSchema=${APP_SCHEMA}
+      FLYWAY_URL: jdbc:postgresql://localhost:5432/${POSTGRES_DB}?currentSchema=${APP_SCHEMA}
       FLYWAY_USER: ${APP_DB_USER}
       FLYWAY_PASSWORD: ${APP_DB_PASSWORD}
       FLYWAY_SCHEMAS: ${APP_SCHEMA}
       FLYWAY_LOCATIONS: 'filesystem:/flyway/sql'
+
     networks:
       - infrastructure-network-ext
 

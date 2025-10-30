@@ -26,13 +26,12 @@ public class UserService {
 
   public UserEntity addUser(User user) {
     UserEntity entity = new UserEntity();
-    entity.setId(UUID.randomUUID());
     entity.setAge(user.getAge());
-    entity.getName();
+    entity.setName(user.getName());
     userMapper.insertUser(entity);
 
     return userMapper.getAllUsers().stream()
-        .filter(entity1 -> entity.getId().equals(entity1.getId()))
+        .filter(entity1 -> entity.getId() == (entity1.getId()))
         .findFirst()
         .orElse(null);
   }
