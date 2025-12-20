@@ -1,7 +1,6 @@
 package shopping_cart.controller;
 
 import shopping_cart.Dto.FantastikoDto;
-import shopping_cart.entity.FantastikoEntity;
 import shopping_cart.service.FantastikoService;
 import org.springframework.web.bind.annotation.*;
 

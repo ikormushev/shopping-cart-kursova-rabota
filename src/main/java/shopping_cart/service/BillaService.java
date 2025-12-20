@@ -46,8 +46,9 @@ public class BillaService {
     private final ChromeDriver driver;
     private final ProductMapper productMapper;
     private final PriceMapper priceMapper;
+    private static final UUID BILLA_STORE_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
 
-    @Value("${billa.url}") // напр: https://www.billa.bg/promocii/sedmichna-broshura
+    @Value("${billa.url}")
     private String brochurePageUrl;
 
     public BillaService(ChromeDriver driver,
@@ -58,23 +59,26 @@ public class BillaService {
         this.priceMapper = priceMapper;
     }
 
-    // ... (В началото на BillaService.java - Увери се, че всички Selenium импорти са налични)
 
     public BillaDto downloadBrochure() throws Exception {
         System.out.println(">>> BILLA SERVICE: Започва сваляне на брошура от homepage (с навигация до слайдера)");
+        try {
+            priceMapper.deletePricesByStoreId(BILLA_STORE_ID);
+            System.out.println(">>> Старите цени за Billa са изтрити.");
+        } catch (Exception e) {
+            System.err.println("Грешка при триене на стари цени: " + e.getMessage());
+        }
 
         File downloadDir = new File("downloads");
         if (!downloadDir.exists()) downloadDir.mkdirs();
 
-        // 1. Почистване на стари файлове
+        //Почистване на стари файлове
         clearOldFiles(downloadDir, ".pdf", ".crdownload");
         clearOldFiles(new File("./pdfimages_products_billa"), ".png");
 
-        // 2. Отваряне на homepage
         driver.get(brochurePageUrl); // https://www.billa.bg/
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30)); // За бавно зареждане
 
-        // --- Стъпка А: Затваряне на бисквитките ---
         try {
             WebElement cookieBtn = wait.until(ExpectedConditions.elementToBeClickable(
                     By.id("onetrust-accept-btn-handler")));
@@ -85,22 +89,18 @@ public class BillaService {
             System.out.println("Няма бисквитки.");
         }
 
-        // --- Стъпка Б: Автоматична навигация до брошурата през слайдера ---
         LocalDate validFrom = LocalDate.now();
         LocalDate validTo = validFrom.plusDays(7);
         boolean navigated = false;
 
         try {
-            // 1. Търсим слайдера (ws-slider-group__inner)
             WebElement slider = wait.until(ExpectedConditions.presenceOfElementLocated(
                     By.cssSelector("ul.ws-slider-group__inner, .ws-slider-group__inner")));
             System.out.println("Намерен слайдер на homepage.");
 
-            // 2. Търсим първия teaser блок в слайдера
             WebElement firstTeaser = slider.findElement(By.cssSelector("div.ws-teaser__content.pa-4:first-of-type, .ws-teaser__content:first-child"));
             System.out.println("Намерен първи teaser: " + firstTeaser.getText());
 
-            // Извличаме дати от teaser (ако има текст като "04.12. - 10.12.")
             try {
                 String teaserText = firstTeaser.getText();
                 if (teaserText.contains("-") && teaserText.matches(".*\\d{2}\\.\\d{2}\\.\\d{4}.*")) {
@@ -114,14 +114,12 @@ public class BillaService {
                 System.out.println("Не можах да извлека дати от teaser.");
             }
 
-            // 3. Кликваме линка в teaser-а (първият <a>)
             WebElement brochureLink = firstTeaser.findElement(By.tagName("a")); // Или By.cssSelector("a[href*='promocii']")
             String targetUrl = brochureLink.getAttribute("href");
             if (targetUrl.startsWith("/")) {
                 targetUrl = "https://www.billa.bg" + targetUrl; // Абсолютен URL
             }
 
-            // Скрол и клик
             ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", brochureLink);
             Thread.sleep(1000);
             ((JavascriptExecutor) driver).executeScript("arguments[0].click();", brochureLink);
@@ -134,14 +132,12 @@ public class BillaService {
         } catch (Exception e1) {
             System.out.println("Навигация през слайдера не сработи: " + e1.getMessage() + " – fallback към директна навигация.");
 
-            // Fallback 1: Директно към промоции
             try {
                 driver.get("https://www.billa.bg/promocii/sedmichna-broshura");
                 navigated = true;
                 System.out.println("Fallback: Директно до седмична брошура.");
                 Thread.sleep(3000);
             } catch (Exception e2) {
-                // Fallback 2: Търсене по меню (ако има main menu с "Промоции")
                 try {
                     WebElement menuLink = wait.until(ExpectedConditions.elementToBeClickable(
                             By.xpath("//a[contains(text(), 'Промоции') or contains(@href, 'promocii')]")));
@@ -159,23 +155,22 @@ public class BillaService {
             }
         }
 
-        // --- Стъпка В: Сваляне на PDF (сега сме на брошура страницата) ---
+        // Сваляне на PDF
         String pdfHref = null;
         WebElement pdfElement = null;
         boolean inIframe = false;
 
         if (navigated) {
             try {
-                // 1. Търсим Publitas iframe на брошура страницата
                 WebElement iframe = wait.until(ExpectedConditions.presenceOfElementLocated(
                         By.cssSelector("iframe[src*='publitas.com'], iframe[src*='viewer'], iframe[class*='publication']")));
                 driver.switchTo().frame(iframe);
                 inIframe = true;
                 System.out.println("Превключено към Publitas iframe на брошурата.");
 
-                Thread.sleep(4000); // За пълен load
+                Thread.sleep(4000);
 
-                // 2. Селектори за PDF в iframe (множество за Publitas)
+                // Селектори за PDF в iframe
                 List<By> selectors = Arrays.asList(
                         By.id("downloadAsPdf"),
                         By.cssSelector("a[data-href='download_pdf'], a[download]"),
@@ -195,11 +190,9 @@ public class BillaService {
                 if (pdfElement != null) {
                     pdfHref = pdfElement.getAttribute("href");
                     if (pdfHref != null && pdfHref.contains(".pdf")) {
-                        // Директно сваляне
                         driver.get(pdfHref);
                         System.out.println("Директно сваляне: " + pdfHref);
                     } else {
-                        // Клик
                         ((JavascriptExecutor) driver).executeScript("arguments[0].click();", pdfElement);
                         System.out.println("Кликнато в iframe.");
                     }
@@ -213,19 +206,18 @@ public class BillaService {
                 driver.get(apiUrl);
             }
 
-            // Връщане от iframe
             if (inIframe) {
                 driver.switchTo().defaultContent();
             }
         }
 
-        // 3. Изчакване на PDF
+        // Изчакване на PDF
         File pdfFile = waitForPdfDownload(downloadDir, 90);
         if (pdfFile == null || pdfFile.length() < 500_000) {
             throw new RuntimeException("PDF не се свали (очаквано >5MB)!");
         }
 
-        // 4. Преименуване
+        // Преименуване
         String newName = String.format("Billa-Brochure-%s-%s.pdf",
                 validFrom.format(DateTimeFormatter.ofPattern("dd-MM-yyyy")),
                 validTo.format(DateTimeFormatter.ofPattern("dd-MM-yyyy")));
@@ -235,7 +227,6 @@ public class BillaService {
         }
         System.out.println("СВАЛЕН: " + pdfFile.getAbsolutePath());
 
-        // 5. Обработка
         try (PDDocument document = PDDocument.load(pdfFile)) {
             parseProductsFromPdf(document);
             extractProductImagesFromPdf(document);
@@ -246,91 +237,95 @@ public class BillaService {
         return new BillaDto(pdfFile.getName(), validFrom, validTo);
     }
 
-    // =========================================================
-    // ПАРСВАНЕ НА ТЕКСТ (Продукти и Цени)
     private void parseProductsFromPdf(PDDocument document) throws Exception {
-        System.out.println(">>> ЗАПОЧВА ПАРСВАНЕ НА BILLA PDF (DEBUG MODE)...");
+        System.out.println(">>> ЗАПОЧВА ПАРСВАНЕ (DEBUG MODE)...");
 
         PDFTextStripper stripper = new PDFTextStripper();
-        stripper.setSortByPosition(true);
+        stripper.setSortByPosition(true); // Важно за подредбата
+        String text = stripper.getText(document);
 
-        UUID storeId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        // 1. ПРОВЕРКА ДАЛИ ИМА ТЕКСТ ИЗОБЩО
+        if (text == null || text.trim().isEmpty()) {
+            System.err.println("!!! ГРЕШКА: PDFTextStripper върна празен текст! Този PDF е само картинки (Scanned). Трябва OCR.");
+            return;
+        }
 
-        int totalPages = document.getNumberOfPages();
-        for (int p = 1; p <= totalPages; p++) {
-            stripper.setStartPage(p);
-            stripper.setEndPage(p);
+        System.out.println("--- НАЧАЛО НА СУРОВ ТЕКСТ (Първите 500 символа) ---");
+        System.out.println(text.substring(0, Math.min(text.length(), 500)));
+        System.out.println("--- КРАЙ НА СУРОВ ТЕКСТ ---");
 
-            String text = stripper.getText(document);
-            String[] lines = text.split("\\r?\\n");
+        String[] lines = text.split("\n");
+        System.out.println("Общо редове за обработка: " + lines.length);
 
-            List<String> nameBuffer = new ArrayList<>();
+        // Regex за цена: По-либерален (хваща 9.99, 9,99, с или без лв)
+        Pattern pricePattern = Pattern.compile("(\\d+[.,]\\d{2})\\s*(?:лв|BGN|€)?", Pattern.CASE_INSENSITIVE);
 
-            for (String line : lines) {
-                line = line.trim();
-                if (line.isEmpty()) continue;
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.isEmpty()) continue;
 
-                // ДЕБЪГ: Виж какво четем
-                // System.out.println("READ: [" + line + "]");
+            Matcher priceMatcher = pricePattern.matcher(line);
+            if (priceMatcher.find()) {
+                // Намерен е ред с число, приличащо на цена
+                String priceRaw = priceMatcher.group(1).replace(",", ".");
 
-                // 1. Търсим цена (по-гъвкав Regex)
-                // Хваща: "12.99 лв", "12,99", "12.99", "1.50"
-                if (line.matches(".*\\d+[.,]\\d{2}.*")) {
-
-                    // Изчистване на цената от букви (напр. "12.99 лв" -> "12.99")
-                    String priceStr = extractPrice(line);
-
-                    // Взимаме името от последните редове в буфера
-                    String name = getNameFromBuffer(nameBuffer);
-
-                    if (isValidProduct(name)) {
-                        saveProductAndPrice(name, priceStr, storeId);
-                        // Изчистваме буфера, защото започва нов продукт
-                        nameBuffer.clear();
+                try {
+                    double priceVal = Double.parseDouble(priceRaw);
+                    // Филтър за невалидни цени (дати, проценти, твърде малки/големи суми)
+                    if (priceVal < 0.10 || priceVal > 200.00) {
+                        // System.out.println("SKIP PRICE (Value): " + line);
+                        continue;
                     }
-                } else {
-                    // 2. Ако не е цена, добавяме в буфера
-                    // Филтрираме само най-очевидния боклук
-                    if (!isJunk(line)) {
-                        nameBuffer.add(line);
-                        // Пазим само последните 3 реда (най-вероятно името е там)
-                        if (nameBuffer.size() > 3) nameBuffer.remove(0);
+
+                    // Ако стигнем до тук, имаме валидна цена. Търсим името.
+                    System.out.println("DEBUG: Намерена цена " + priceRaw + " на ред: " + line);
+
+                    Deque<String> nameParts = new LinkedList<>();
+
+                    // Търсим назад до 5 реда
+                    for (int j = 1; j <= 5 && i - j >= 0; j++) {
+                        String prev = lines[i - j].trim();
+                        if (prev.length() < 2) continue;
+
+                        // Стоп думи
+                        if (prev.matches("(?i).*(лв|bgn|цена|отстъпка|супер|промо|без кост|за 1 кг).*")) continue;
+                        if (prev.matches(".*\\d+.*")) break; // Спираме при други цифри
+
+                        nameParts.addFirst(prev);
                     }
+
+                    String potentialName = String.join(" ", nameParts);
+                    potentialName = cleanProductName(potentialName);
+
+                    if (potentialName.length() > 3) {
+                        saveProductAndPrice(potentialName, priceRaw);
+                    } else {
+                        System.out.println("--> Неуспешно име за цена " + priceRaw + ". Намерено парче: '" + potentialName + "'");
+                    }
+
+                } catch (NumberFormatException e) {
+                    // Not a number
                 }
             }
         }
         System.out.println(">>> ПРИКЛЮЧИ ПАРСВАНЕТО.");
     }
+    private String cleanProductName(String rawName) {
+        String name = rawName.trim();
 
+        // Махаме маркетингови послания, специфични за Billa
+        name = name.replaceAll("(?i)(Весела Коледа|25 години|ВИНАГИ ДО ВАС|СЕГА В BILLA|ПРАЗНУВАЙ С)", "");
+        name = name.replaceAll("(?i)(BILLA ready|BILLA Card|Billa)", "");
 
+        // Махаме символи и остатъци от проценти
+        name = name.replaceAll("[-–%*]", "");
 
-    private String getNameFromBuffer(List<String> buffer) {
-        if (buffer.isEmpty()) return "Unknown Product";
-        // Обединяваме последните редове
-        return String.join(" ", buffer).trim();
+        // Махаме излишни интервали
+        name = name.replaceAll("\\s+", " ").trim();
+
+        return name;
     }
 
-    private boolean isJunk(String line) {
-        // Филтрираме системни текстове на Billa
-        String s = line.toLowerCase();
-        return s.contains("billa") || s.contains("card") || s.contains("валидно") ||
-                s.contains("стр.") || s.contains("www") || s.length() < 2;
-    }
-
-    private boolean isValidProduct(String name) {
-        return name.length() > 3 && !name.contains("Unknown");
-    }
-
-
-
-    // ТВОЯТ SAVE МЕТОД (със задължителен try-catch)
-
-
-    // Помощен метод за обработка на текста от една колона
-
-
-
-    // BillaService.java (extractPrice)
     private String extractPrice(String line) {
         Matcher matcher = Pattern.compile("(\\d+[.,]\\d{2})").matcher(line);
         if (matcher.find()) {
@@ -339,39 +334,48 @@ public class BillaService {
         return "0.00";
     }
 
+    private void saveProductAndPrice(String name, String priceStr) {
+        String cleanName = name.trim();
+        if (cleanName.isBlank()) return;
 
-    // BillaService.java (saveProductAndPrice - КЛЮЧОВА КОРЕКЦИЯ)
-    private void saveProductAndPrice(String name, String priceStr, UUID storeId) {
         try {
-            ProductEntity product = new ProductEntity();
-            product.setId(UUID.randomUUID());
-            // Ограничаваме името, за да не надхвърля VARCHAR(255) в БД
-            product.setName(name.length() > 255 ? name.substring(0, 252) + "..." : name);
-            product.setCreatedAt(OffsetDateTime.now());
+            // 1. Проверяваме дали продуктът вече съществува по SKU (името)
+            ProductEntity product = productMapper.findBySku(cleanName);
 
-            // ⚠️ Тук може да е грешката, ако Mapper-ът изисква category/sku/description
-            productMapper.insert(product);
+            if (product == null) {
+                // Няма го -> Създаваме нов
+                product = new ProductEntity();
+                product.setId(UUID.randomUUID());
+                product.setName(cleanName);
+                product.setSku(cleanName);
+                product.setCreatedAt(OffsetDateTime.now());
 
+                try {
+                    productMapper.insert(product);
+                } catch (Exception e) {
+                    // Ако гръмне тук, значи някой друг го е вкарал току-що -> взимаме го
+                    product = productMapper.findBySku(cleanName);
+                    if (product == null) return;
+                }
+            }
+
+            // 2. Записваме цената
             PriceEntity priceEntity = new PriceEntity();
-            priceEntity.setId(UUID.randomUUID()); // ⚠️ Трябва да има ID, ако е NOT NULL в БД
+            priceEntity.setId(UUID.randomUUID());
             priceEntity.setProductId(product.getId());
+            priceEntity.setStoreId(BILLA_STORE_ID); // Ползваме Billa ID
             priceEntity.setPrice(new BigDecimal(priceStr));
-            priceEntity.setTimestamp(OffsetDateTime.now());
-            priceEntity.setStoreId(storeId);
-            priceMapper.insert(priceEntity);
+            priceEntity.setCurrency("BGN");
+            priceEntity.setCreatedAt(OffsetDateTime.now());
 
-            // 🟢 УСПЕШЕН ЛОГ
-            System.out.println("Billa → " + name + " | " + priceStr + " лв");
+            priceMapper.insert(priceEntity);
+            System.out.println("Billa SAVE: " + cleanName + " -> " + priceStr);
+
         } catch (Exception e) {
-            // 🚨 ЛОГВАМЕ КОНКРЕТНАТА ГРЕШКА
-            System.err.println("❌ MyBatis ГРЕШКА при запис на BILLA продукт: " + name);
-            e.printStackTrace(); // <--- ТОВА ЩЕ РАЗКРИЕ ПРОБЛЕМА!
+            System.err.println("Грешка при запис (Billa): " + cleanName + " - " + e.getMessage());
         }
     }
 
-    // =========================================================
-    // СНИМКИ (IMAGE EXTRACTION) - Адаптирано за BILLA
-    // =========================================================
     private void extractProductImagesFromPdf(PDDocument document) throws Exception {
         PDFRenderer renderer = new PDFRenderer(document);
         File outDir = new File("./pdfimages_products_billa/");
@@ -382,7 +386,7 @@ public class BillaService {
             // Рендерираме страницата като картинка
             BufferedImage pageImage = renderer.renderImageWithDPI(pageNum, 200, ImageType.RGB);
 
-            // Търсим зони с цени (BILLA често ползва жълто и червено)
+            // Търсим зони с цени
             List<Rectangle> priceZones = findBillaPriceZones(pageImage);
 
             Set<Integer> usedY = new HashSet<>();
@@ -392,9 +396,9 @@ public class BillaService {
                 if (usedY.stream().anyMatch(y -> Math.abs(y - zone.y) < 100)) continue;
                 usedY.add(zone.y);
 
-                // Изрязваме продукта НАД цената
+                // Изрязваме продукта над цената
                 int w = 600;
-                int h = 700; // Височина на продукта
+                int h = 700;
                 int centerX = zone.x + zone.width / 2;
                 int x = Math.max(0, centerX - w / 2);
                 int y = Math.max(0, zone.y - h + 50); // Взимаме малко и от цената
@@ -420,14 +424,11 @@ public class BillaService {
                 if (visited[y][x]) continue;
                 Color c = new Color(img.getRGB(x, y));
 
-                // Billa Жълто (Примерно: R>220, G>200, B<100)
                 boolean isYellow = c.getRed() > 200 && c.getGreen() > 180 && c.getBlue() < 100;
-                // Billa Червено (за промоции)
                 boolean isRed = c.getRed() > 200 && c.getGreen() < 100 && c.getBlue() < 100;
 
                 if (isYellow || isRed) {
                     Rectangle r = floodFillColorBlock(img, x, y, visited, c);
-                    // Филтър за големина на карето с цената
                     if (r.width > 50 && r.width < 500 && r.height > 30 && r.height < 200) {
                         zones.add(r);
                         markVisitedAround(visited, r, 50);
@@ -439,7 +440,6 @@ public class BillaService {
         return zones;
     }
 
-    // Стандартен Flood Fill (може да се ползва същия като в Kaufland)
     private Rectangle floodFillColorBlock(BufferedImage img, int sx, int sy, boolean[][] visited, Color target) {
         Queue<int[]> q = new LinkedList<>();
         q.add(new int[]{sx, sy});
@@ -484,9 +484,6 @@ public class BillaService {
         }
     }
 
-    // =========================================================
-    // HELPER METHODS (Файлове и Чакане)
-    // =========================================================
     private void clearOldFiles(File dir, String... extensions) {
         if (!dir.exists()) return;
         File[] files = dir.listFiles((d, name) -> {
@@ -507,7 +504,7 @@ public class BillaService {
                 Arrays.sort(files, Comparator.comparingLong(File::lastModified).reversed());
                 File file = files[0];
                 if (file.length() > 100_000) {
-                    Thread.sleep(1000); // Изчакваме още малко да се освободи
+                    Thread.sleep(1000); // Изчакваме
                     return file;
                 }
             }

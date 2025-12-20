@@ -15,5 +15,6 @@ public class PriceEntity {
     private UUID productId;
     private UUID storeId;
     private BigDecimal price;
-    private OffsetDateTime timestamp;
+    private String currency;
+    private OffsetDateTime createdAt;
 }

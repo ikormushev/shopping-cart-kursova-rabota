@@ -3,7 +3,6 @@ package shopping_cart.service;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import shopping_cart.Dto.FantastikoDto;
-import org.openqa.selenium.WebElement;
 import shopping_cart.mapper.PriceMapper;
 import shopping_cart.mapper.ProductMapper;
 import shopping_cart.repository.FantastikoRepository;
@@ -17,16 +16,16 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.openqa.selenium.JavascriptExecutor;
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.*;
 import java.util.List;
 import javax.imageio.ImageIO;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
+
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.rendering.ImageType;
+
 import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -40,6 +39,8 @@ public class FantastikoService {
     private final ChromeDriver driver;
     private final ProductMapper productMapper;
     private final PriceMapper priceMapper;
+    private static final UUID FANTASTIKO_STORE_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     @Value("${fantastiko.url}")
     private String url;
 
@@ -56,8 +57,8 @@ public class FantastikoService {
 
     public FantastikoDto downloadBrochure() throws Exception {
         System.out.println(">>> SERVICE ENTERED downloadBrochure()");
-
-        // Изчистваме старите PDF-и от папката downloads
+        priceMapper.deletePricesByStoreId(FANTASTIKO_STORE_ID);
+        //Изтриваме старите PDFи
         File downloadDir = new File("downloads");
         File[] oldFiles = downloadDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf") || name.endsWith(".crdownload"));
         if (oldFiles != null) {
@@ -67,7 +68,7 @@ public class FantastikoService {
                 }
             }
         }
-        //изтриване на старите png снимки
+        //изтриване на старите снимки
         File outDir = new File("./pdfimages/");
         File[] oldImages = outDir.listFiles((dir, name) ->
                 name.toLowerCase().endsWith(".png") || name.toLowerCase().endsWith(".jpg") || name.toLowerCase().endsWith(".jpeg")
@@ -82,10 +83,8 @@ public class FantastikoService {
                 }
             }
         }
-        // 1) Load HTML using Jsoup
         Document html = Jsoup.connect(url).get();
 
-        // 2) Select first brochure element
         var element = html.select("div.brochure-container.first div.hold-options").first();
         if (element == null) {
             throw new IllegalStateException("Не може да се намери flippingbook URL на страницата: " + url);
@@ -95,17 +94,14 @@ public class FantastikoService {
 
         System.out.println("FlippingBook URL: " + flippingBookUrl);
 
-        // 3) Load in Selenium
         driver.get(flippingBookUrl);
 
-        // 4) Ако има iframe, превключваме
         try {
             driver.switchTo().frame(driver.findElement(By.cssSelector("iframe")));
         } catch (Exception e) {
             System.out.println("No iframe found, continuing...");
         }
 
-        // 5) Изчакваме бутона Download
         new WebDriverWait(driver, Duration.ofSeconds(10))
                 .until(ExpectedConditions.presenceOfElementLocated(
                         By.cssSelector("button[title='Download']")
@@ -118,7 +114,6 @@ public class FantastikoService {
 
         downloadButton.get(0).click();
 
-   // 6) Изчакваме да се появи линкът за директно сваляне на PDF
         new WebDriverWait(driver, Duration.ofSeconds(15))
                 .until(ExpectedConditions.elementToBeClickable(
                         By.cssSelector("a[aria-label='Download the flipbook as a PDF file']")
@@ -129,11 +124,9 @@ public class FantastikoService {
             throw new IllegalStateException("Не е намерен линк към PDF за сваляне");
         }
 
-// Клик и изчакване
         pdfLinkElements.get(0).click();
         System.out.println("Кликнато! Изчаквам сваляне...");
 
-// Почистване + изчакване + преименуване
         File pdfFile = waitForPdfDownload(downloadDir, 60);
 
         if (pdfFile == null || pdfFile.length() < 1_000_000) {
@@ -149,7 +142,7 @@ public class FantastikoService {
 
         System.out.println("ГОТОВ PDF: " + pdfFile.getAbsolutePath() +
                 " (" + (pdfFile.length() / 1024 / 1024) + " MB)");
-// === ОБРАБОТКА НА PDF ===
+
         try (PDDocument document = PDDocument.load(pdfFile)) {
             parseProductsFromPdf(document);
             extractProductImagesFromPages(document);
@@ -158,79 +151,221 @@ public class FantastikoService {
             throw new RuntimeException("Грешка при отваряне на сваления PDF", e);
         }
 
-// Връщаме DTO-то
         LocalDate startDate = LocalDate.now();
         LocalDate endDate = startDate.plusDays(7);
 
         return new FantastikoDto(pdfFile.getName(), startDate, endDate);
     }
+
     private void parseProductsFromPdf(PDDocument document) throws Exception {
         PDFTextStripper stripper = new PDFTextStripper();
+        stripper.setSortByPosition(true);
         String text = stripper.getText(document);
         String[] lines = text.split("\n");
 
-        String lastGoodName = null;
+        List<String> stopPhrases = Arrays.asList(
+                "цена за", "цена на", "лв", "лв.", "bgn", "€", "eur",
+                "фантастико", "оферта за периода", "продуктите се продават",
+                "www.", ".bg", ".com", "произход", "вакуум", "слайс"
+        );
+
+        List<String> skipPhrases = Arrays.asList(
+                "%", "отстъпка", "промоция", "евтин", "събира ни вкусът",
+                "декорацията", "изображенията", "са с илюстративна", "без консерванти"
+        );
 
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
 
-            if (line.matches(".*\\d+[.,]\\d+\\s*лв.*")) {
+            if (line.contains("%") || line.matches(".*-\\d+\\s*%?.*")) continue;
+
+            if (line.matches(".*?(\\d+[.,]\\d+)\\s*(ЛВ|лв|BGN).*")) {
+
                 String price = extractPrice(line);
+                try {
+                    double priceVal = Double.parseDouble(price);
+                    if (priceVal < 0.10 || priceVal > 5000) continue;
+                } catch (Exception e) { continue; }
 
-                // Взимаме до 3 реда нагоре за име
-                StringBuilder nameBuilder = new StringBuilder();
-                for (int j = 1; j <= 4 && i - j >= 0; j++) {
-                    String candidate = lines[i - j].trim();
-                    if (candidate.isBlank()) continue;
-                    if (candidate.matches(".*\\d+[.,]\\d+.*|.*лв.*|.*%.*|.*подарък.*|.*цена*.|.*бр*")) continue;
+                Deque<String> nameParts = new LinkedList<>();
 
-                    nameBuilder.insert(0, candidate + " ");
-                    break; // взимаме само най-близкия добър ред
+                String currentLineCleaned = line.replaceAll("(\\d+[.,]\\d+)|(ЛВ|лв|€|BGN)|(-?\\d+%)", "").trim();
+
+                currentLineCleaned = currentLineCleaned.replaceAll("^\\d+\\s*(г|кг|мл|л|ml|kg|g|бр|бр\\.)\\.?\\s+", "");
+
+                currentLineCleaned = currentLineCleaned.replaceAll("^\\s*[+\\-.]+\\s*", "");
+
+                if (currentLineCleaned.length() > 2 && !currentLineCleaned.matches("^[\\d\\s.,-]+$")) {
+                    nameParts.addFirst(currentLineCleaned);
                 }
 
-                String name = nameBuilder.toString().trim();
-                if (name.isBlank()) name = "Продукт без име " + i;
+                for (int j = 1; j <= 6 && i - j >= 0; j++) {
+                    String prevLine = lines[i - j].trim();
+                    if (prevLine.isEmpty()) continue;
 
-                saveProductAndPrice(name, price);
+                    String prevLineLower = prevLine.toLowerCase();
+
+                    if (prevLineLower.matches(".*\\d+\\s*(г|кг|мл|л|ml|kg|g|бр|бр\\.)\\.?$")) {
+                        break;
+                    }
+
+                    if (prevLine.matches(".*\\d+[.,]\\d+\\s*([Лл][Вв]\\.?|BGN|€).*")) {
+                        break;
+                    }
+
+                    boolean shouldStop = false;
+                    for (String stop : stopPhrases) {
+                        if (prevLineLower.contains(stop)) {
+                            shouldStop = true;
+                            break;
+                        }
+                    }
+                    if (shouldStop) break;
+
+                    boolean shouldSkip = false;
+                    for (String skip : skipPhrases) {
+                        if (prevLineLower.contains(skip)) {
+                            shouldSkip = true;
+                            break;
+                        }
+                    }
+                    if (!prevLine.matches(".*[а-яА-Яa-zA-Z].*")) shouldSkip = true;
+
+                    if (shouldSkip) continue;
+
+                    nameParts.addFirst(prevLine);
+                }
+
+                String fullName = String.join(" ", nameParts);
+                String cleanName = cleanProductName(fullName);
+
+                if (cleanName.length() >= 3) {
+                    saveProductAndPrice(cleanName, price);
+                }
             }
         }
     }
 
+    private String cleanProductName(String rawName) {
+        String name = rawName;
 
-    private String extractPrice(String line) {
-        return line.replaceAll(".*?(\\d+[.,]\\d+).*", "$1")
-                .replace(",", ".");
+        name = name.replaceAll("^\\s*[+\\-.]+\\s*", "");
+
+        name = name.replaceAll("(?i)(\\d+[.,]\\d+)\\s*(лв|€|bgn)", "");
+        name = name.replaceAll("(?i)\\s(лв\\.?|€|bgn)\\s?", " ");
+
+        name = name.replaceAll("(?i)цена за.*", "");
+        name = name.replaceAll("(?i)без кост.*", ""); // Опционално, ако искате да махате "без кост"
+
+        name = name.replaceAll("\\s+", " ").trim();
+
+        return name;
     }
 
-    private void saveProductAndPrice(String name, String price) {
-        ProductEntity product = new ProductEntity();
-        product.setId(UUID.randomUUID());
-        product.setName(name);
-        product.setCreatedAt(OffsetDateTime.now());
-        productMapper.insert(product);
 
-        PriceEntity priceEntity = new PriceEntity();
-        priceEntity.setId(UUID.randomUUID());
-        priceEntity.setProductId(product.getId());
-        priceEntity.setPrice(new BigDecimal(price));
-        priceEntity.setTimestamp(OffsetDateTime.now());
-        priceEntity.setStoreId(UUID.fromString("00000000-0000-0000-0000-000000000001")); // Fantastiko
-        priceMapper.insert(priceEntity);
+    private String extractPrice(String line) {
+        String cleanLine = line.replaceAll("(\\d+)-(\\d+)", "$1.$2");
 
-        System.out.println("Saved product: " + name + " | price: " + price);
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+[.,]\\d+)");
+        java.util.regex.Matcher matcher = pattern.matcher(cleanLine);
+
+        List<BigDecimal> numbers = new ArrayList<>();
+
+        while (matcher.find()) {
+            try {
+                String numStr = matcher.group(1).replace(",", ".");
+                numbers.add(new BigDecimal(numStr));
+            } catch (NumberFormatException ignored) {}
+        }
+
+        if (numbers.isEmpty()) {
+            return "0.00";
+        }
+
+        if (numbers.size() == 1) {
+            return numbers.get(0).toString();
+        }
+
+        BigDecimal first = numbers.get(0);
+        BigDecimal second = numbers.get(1);
+        BigDecimal euroRate = new BigDecimal("1.95583");
+
+        BigDecimal calculatedEuro = first.divide(euroRate, 2, java.math.RoundingMode.HALF_UP);
+        if (calculatedEuro.subtract(second).abs().doubleValue() < 0.05) {
+            return first.toString();
+        }
+
+        BigDecimal calculatedEuroReverse = second.divide(euroRate, 2, java.math.RoundingMode.HALF_UP);
+        if (calculatedEuroReverse.subtract(first).abs().doubleValue() < 0.05) {
+            return second.toString();
+        }
+
+        return numbers.get(0).toString();
+    }
+
+    private void saveProductAndPrice(String name, String priceString) {
+        String cleanName = name.trim();
+
+        // 1. Търсим или създаваме продукта
+        ProductEntity product = productMapper.findBySku(cleanName);
+
+        if (product == null) {
+            product = new ProductEntity();
+            product.setId(UUID.randomUUID());
+            product.setName(cleanName);
+            product.setSku(cleanName);
+            product.setCreatedAt(OffsetDateTime.now());
+
+            try {
+                productMapper.insert(product);
+                System.out.println("Създаден нов продукт: " + cleanName);
+            } catch (Exception e) {
+                System.err.println("Грешка при запис на продукт: " + cleanName);
+                return;
+            }
+        }
+
+        // 2. Валидация на цената
+        BigDecimal priceValue;
+        try {
+            priceValue = new BigDecimal(priceString);
+            if (priceValue.compareTo(BigDecimal.ZERO) <= 0) {
+                System.err.println("Невалидна цена (0 или отрицателна) за: " + cleanName);
+                return;
+            }
+        } catch (NumberFormatException e) {
+            System.err.println("Грешка при парсване на цена: " + priceString + " за продукт: " + cleanName);
+            return;
+        }
+
+        try {
+            PriceEntity priceEntity = new PriceEntity();
+            priceEntity.setId(UUID.randomUUID());
+            priceEntity.setProductId(product.getId()); // Връзка към продукта
+            priceEntity.setStoreId(FANTASTIKO_STORE_ID); // Фантастико ID
+            priceEntity.setPrice(priceValue);
+            priceEntity.setCurrency("BGN");
+            priceEntity.setCreatedAt(OffsetDateTime.now());
+
+            // Тук използвате вашия priceMapper за запис в БД
+            priceMapper.insert(priceEntity);
+
+            System.out.println(String.format("Успешно записана цена: %s -> %s лв.", cleanName, priceValue));
+        } catch (Exception e) {
+            System.err.println("Грешка при запис на цената за: " + cleanName);
+            e.printStackTrace();
+        }
     }
     private List<Rectangle> findWhiteFieldsWithText(BufferedImage img) {
         List<Rectangle> fields = new ArrayList<>();
         boolean[][] visited = new boolean[img.getHeight()][img.getWidth()];
 
-        // Търсим бели/светли полета (background > 230 RGB)
         for (int y = 100; y < img.getHeight() - 100; y += 20) {
             for (int x = 50; x < img.getWidth() - 50; x += 20) {
                 if (visited[y][x]) continue;
 
                 Color bgColor = new Color(img.getRGB(x, y));
                 if (bgColor.getRed() > 230 && bgColor.getGreen() > 230 && bgColor.getBlue() > 230) {
-                    // Проверяваме дали има текст (тъмен текст в полето)
                     if (hasDarkTextInField(img, x, y, 200, 100)) {
                         Rectangle field = floodFillWhiteField(img, x, y, visited);
                         if (field.width > 200 && field.width < 600 && field.height > 80 && field.height < 250) {
@@ -304,14 +439,13 @@ public class FantastikoService {
             List<Rectangle> priceZones = findAllPriceZones(page);
             System.out.println("Страница " + (i + 1) + " → намерени " + priceZones.size() + " ценови блока");
 
-            // 🔥 КЛЮЧЪТ → пазим само по 1 изображение за продукт
             Set<Integer> usedPricesByY = new HashSet<>();
 
             for (Rectangle price : priceZones) {
 
-                // Ако вече имаме продукт с подобна Y позиция → пропускаме
+                // Пропускаме дублиращи продукти
                 if (usedPricesByY.stream().anyMatch(pY -> Math.abs(pY - price.y) < 50)) {
-                    continue; // дублиране → пропускаме
+                    continue;
                 }
 
                 usedPricesByY.add(price.y);
@@ -347,18 +481,12 @@ public class FantastikoService {
         System.out.println("\nГОТОВО — записани са общо " + (counter - 1) + " уникални продуктови изображения!");
     }
 
-
-    // ===================================================================
-// Търси жълти, червени, оранжеви зони (цени в брошурите на Фантастико)
-// ===================================================================
     private List<Rectangle> findAllPriceZones(BufferedImage img) {
         boolean[][] visited = new boolean[img.getHeight()][img.getWidth()];
         List<Rectangle> zones = new ArrayList<>();
 
-        // 1. Жълти/червени блокове
         zones.addAll(findCleanPriceZones(img, visited));
 
-        // 2. Бели блокове с тъмен текст
         for (int y = 250; y < img.getHeight() - 150; y += 25) {
             for (int x = 80; x < img.getWidth() - 80; x += 25) {
                 if (visited[y][x]) continue;
@@ -395,7 +523,7 @@ public class FantastikoService {
                                 (c.getRed() > 230 && c.getGreen() < 110 && c.getBlue() < 110);     // червено
 
                 if (isPriceColor) {
-                    Rectangle r = floodFillSimple(img, x, y, visited);  // ← сега пасва идеално!
+                    Rectangle r = floodFillSimple(img, x, y, visited);
                     if (r.width >= 95 && r.width <= 360 && r.height >= 48 && r.height <= 105) {
                         result.add(r);
                         markVisitedAround(visited, r, 50);
@@ -464,10 +592,6 @@ public class FantastikoService {
         int db = c1.getBlue() - c2.getBlue();
         return dr*dr + dg*dg + db*db;
     }
-    // ===================================================================
-// Flood-fill алгоритъм за намиране на свързани цветни зони
-// ===================================================================
-    // ← ИЗТРИЙ ВСИЧКИ ДРУГИ floodFillSimple методи!
     private Rectangle floodFillSimple(BufferedImage img, int startX, int startY, boolean[][] visited) {
         Queue<int[]> queue = new LinkedList<>();
         queue.add(new int[]{startX, startY});
@@ -494,7 +618,6 @@ public class FantastikoService {
 
                 if (nx >= 0 && nx < img.getWidth() && ny >= 0 && ny < img.getHeight() && !visited[ny][nx]) {
                     Color c = new Color(img.getRGB(nx, ny));
-                    // Толеранс за сходство на цвета – достатъчно гъвкав
                     if (colorDistance(c, targetColor) < 70) {
                         visited[ny][nx] = true;
                         queue.add(new int[]{nx, ny});
@@ -511,12 +634,6 @@ public class FantastikoService {
                 (c.getRed() > 200 && c.getGreen() < 120 && c.getBlue() < 120);
     }
 
-    /**
-     * Изчаква PDF файлът да се свали напълно в папката "downloads"
-     * downloadDir папката за сваляне
-     * timeoutSeconds максимално време за изчакване
-     * return готовия PDF файл или null ако не се появи навреме
-     */
     private File waitForPdfDownload(File downloadDir, int timeoutSeconds) throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
 
@@ -532,21 +649,21 @@ public class FantastikoService {
                     if (file.getName().endsWith(".crdownload")) {
                         stillDownloading = true;           // още се сваля
                     } else if (file.getName().toLowerCase().endsWith(".pdf")) {
-                        finishedPdf = file;                // намерен готов PDF
+                        finishedPdf = file;                // намерен PDF
                     }
                 }
 
                 // Ако няма .crdownload и има .pdf → свалянето е приключило
                 if (!stillDownloading && finishedPdf != null && finishedPdf.length() > 100_000) {
-                    Thread.sleep(800); // малко почивка, за да е сигурно, че Chrome е пуснал файла
+                    Thread.sleep(800);
                     return finishedPdf;
                 }
             }
 
-            Thread.sleep(1000); // проверяваме на всяка секунда
+            Thread.sleep(1000);
         }
 
-        return null; // таймаут
+        return null;
     }
 
 

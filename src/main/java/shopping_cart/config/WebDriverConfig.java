@@ -30,7 +30,6 @@ public class WebDriverConfig {
         options.addArguments("--disable-extensions");
         options.addArguments("--disable-infobars");
 
-        // КЛЮЧОВО: Разреши автоматично сваляне на PDF без питане
         Map<String, Object> prefs = new HashMap<>();
         prefs.put("download.default_directory", DOWNLOAD_DIR);
         prefs.put("download.prompt_for_download", false);
@@ -41,7 +40,6 @@ public class WebDriverConfig {
 
         options.setExperimentalOption("prefs", prefs);
 
-        // Махни флага webdriver (за да не те хващат като бот)
         options.setExperimentalOption("excludeSwitches", java.util.Collections.singletonList("enable-automation"));
         options.addArguments("--disable-blink-features=AutomationControlled");
 

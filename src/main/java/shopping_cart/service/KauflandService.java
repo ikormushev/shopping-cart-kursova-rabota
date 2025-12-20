@@ -29,8 +29,8 @@ import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.List;
 import java.time.format.DateTimeFormatter;
-import java.time.LocalDate;
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class KauflandService {
@@ -38,6 +38,7 @@ public class KauflandService {
     private final ChromeDriver driver;
     private final ProductMapper productMapper;
     private final PriceMapper priceMapper;
+    private static final UUID KAUFLAND_STORE_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
     @Value("${downloads.dir}")
     private String baseDownloadDir;
@@ -59,7 +60,12 @@ public class KauflandService {
 
     public KauflandDto downloadBrochure() throws Exception {
         System.out.println(">>> KAUFLAND SERVICE: Започва сваляне на брошура");
-
+        try {
+            priceMapper.deletePricesByStoreId(KAUFLAND_STORE_ID);
+            System.out.println(">>> Старите цени за Kaufland са изтрити.");
+        } catch (Exception e) {
+            System.err.println("Грешка при изтриване на стари цени: " + e.getMessage());
+        }
         File downloadDir = new File("downloads");
         File[] oldFiles = downloadDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".pdf") || name.endsWith(".crdownload"));
         if (oldFiles != null) {
@@ -72,11 +78,10 @@ public class KauflandService {
         File DownloadDir = new File(getKauflandDownloadDir());
         if (!downloadDir.exists()) downloadDir.mkdirs();
 
-        // Изчистваме стари файлове
+        // Изчистваме стари PDFи
         clearOldFiles(downloadDir, ".pdf", ".crdownload");
         clearOldFiles(new File("./pdfimages_products_kaufland"), ".png");
 
-        // 1) Взимаме линка на брошурата със Selenium
         driver.get(brochurePageUrl);
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
@@ -91,18 +96,15 @@ public class KauflandService {
         System.out.println("Valid from: " + validFrom);
         System.out.println("Valid to: " + validTo);
 
-// Изчакваме да се появи бутона
+        // Изчакваме да се появи бутона
         WebElement downloadButton = wait.until(
                 ExpectedConditions.elementToBeClickable(
                         By.cssSelector("div.a-button.a-button--download-flyer")
                 )
         );
 
-// Кликваме върху бутона с JavaScript (по-надеждно при динамични елементи)
         ((JavascriptExecutor) driver).executeScript("arguments[0].click();", downloadButton);
 
-
-        // 2) Сваляме PDF директно чрез Java
         String pdfFileName = String.format("Kaufland-%s-%s.pdf",
                 validFrom.format(DateTimeFormatter.ofPattern("dd-MM-yyyy")),
                 validTo.format(DateTimeFormatter.ofPattern("dd-MM-yyyy")));
@@ -115,20 +117,18 @@ public class KauflandService {
 
         System.out.println("СВАЛЕН PDF: " + pdfFile.getAbsolutePath());
 
-        // 3) Обработваме PDF-а
         int productsSaved = 0;
         int imagesSaved = 0;
 
         try (PDDocument document = PDDocument.load(pdfFile)) {
-            parseProductsFromPdf(document);      // void метод → не присвояваме
-            extractProductImagesFromPdf(document); // void метод → не присвояваме
+            parseProductsFromPdf(document);
+            extractProductImagesFromPdf(document);
         } catch (Exception e) {
             e.printStackTrace();
             return KauflandDto.error("Грешка при обработка на PDF: " + e.getMessage());
         }
         System.out.println("ГОТОВ PDF: " + pdfFile.getAbsolutePath() +
                 " (" + (pdfFile.length() / 1024 / 1024) + " MB)");
-// === ОБРАБОТКА НА PDF ===
         validFrom = LocalDate.now();
         validTo = validFrom.plusDays(6);
 
@@ -143,51 +143,72 @@ public class KauflandService {
         );
     }
 
-
     private void parseProductsFromPdf(PDDocument document) throws Exception {
         PDFTextStripper stripper = new PDFTextStripper();
+        stripper.setSortByPosition(true);
         String text = stripper.getText(document);
         String[] lines = text.split("\n");
 
-        List<String> buffer = new ArrayList<>();
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
 
-        for (String line : lines) {
-            line = line.trim();
-            if (line.isEmpty()) continue;
-
-            // Игнориране на евро и промоции
-            if (line.contains("€") || line.matches(".*-\\d+%.*")) continue;
-
-            // Ценови ред
-            if (line.matches(".*\\d+[.,]?\\d{1,2}\\s*ЛВ.*")) {
+            // 1. ТЪРСИМ ЦЕНА (XX,XX ЛВ) - Това е нашият "котва"
+            if (line.matches(".*?(\\d+[,.]\\d{2})\\s*(ЛВ|лв|BGN).*")) {
                 String price = extractPrice(line);
 
-                String name = String.join(" ", buffer).trim();
-                if (name.isEmpty()) name = "Продукт без име";
+                // 2. ИГНОРИРАМЕ грешни цени (като датата 15.12)
+                if (line.contains("15.12") || line.contains("21.12")) continue;
 
-                UUID storeId = UUID.fromString("00000000-0000-0000-0000-000000000002");
-                saveProductAndPrice(name, price, storeId);
+                Deque<String> nameParts = new LinkedList<>();
 
-                buffer.clear(); // чистим за следващ продукт
-            } else {
-                // Добавяме реда към буфера, ако е текст
-                buffer.add(line);
+                // Връщаме се МАКСИМУМ 2 реда назад
+                for (int j = 1; j <= 2 && (i - j) >= 0; j++) {
+                    String prev = lines[i - j].trim();
+
+                    // СПИРАЧКИ (Simple & Direct):
+                    if (prev.isEmpty() || prev.matches(".*\\d.*") || prev.contains("=")) break;
+
+                    // Игнорираме очевиден шум (инструкции за цветя)
+                    if (prev.toUpperCase().matches(".*(СЛЪНЦЕ|СВЕТЛИНА|ПОЛИВАНЕ|СЯНКА|ОБИЛНО|УМЕРЕНО).*")) continue;
+
+                    nameParts.addFirst(prev);
+                }
+
+                String fullName = String.join(" ", nameParts).trim();
+
+                if (fullName.contains("  ")) {
+                    String[] parts = fullName.split("\\s{2,}");
+                    fullName = parts[parts.length - 1];
+                }
+
+                if (fullName.length() > 2) {
+                    saveProductAndPrice(fullName, price);
+                }
             }
         }
     }
 
+    // Максимално опростен метод за чистене
+    private String cleanProductName(String rawName) {
+        String name = rawName.trim();
+
+        // 1. Махаме всичко в скоби
+        name = name.replaceAll("\\(.*?\\)", "");
+
+        if (name.contains("   ") || name.contains(" . ")) {
+            String[] parts = name.split("(\\s{3,}|\\s\\.\\s)");
+            if (parts.length > 0) name = parts[0];
+        }
+
+        return name.replaceAll("^[.\\s\\-]+|[.\\s\\-]+$", "").trim();
+    }
 
     private String extractPrice(String line) {
-        // Извлича първото число с десетични знаци
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+[.,]\\d{1,2}").matcher(line);
-        if (matcher.find()) {
-            return matcher.group().replace(",", "."); // заменяме запетая с точка за BigDecimal
-        }
+        Matcher matcher = Pattern.compile("(\\d+[,.]\\d{2})").matcher(line);
+        if (matcher.find()) return matcher.group(1).replace(",", ".");
         return "0.00";
     }
 
-
-    // ===================== HELPER METHODS =====================
     private void extractProductImagesFromPdf(PDDocument document) throws Exception {
         PDFRenderer renderer = new PDFRenderer(document);
         File outDir = new File("./pdfimages_products_kaufland/");
@@ -223,24 +244,46 @@ public class KauflandService {
         }
     }
 
+    private void saveProductAndPrice(String name, String priceStr) {
+        String cleanName = name.trim();
+        if (cleanName.isBlank()) return;
 
+        try {
+            // 1. Проверяваме дали продуктът вече съществува
+            ProductEntity product = productMapper.findBySku(cleanName);
 
-    private void saveProductAndPrice(String name, String priceStr, UUID storeId) {
-        ProductEntity product = new ProductEntity();
-        product.setId(UUID.randomUUID());
-        product.setName(name.length() > 255 ? name.substring(0, 252) + "..." : name);
-        product.setCreatedAt(OffsetDateTime.now());
-        productMapper.insert(product);
+            if (product == null) {
+                // Ако го няма -> Създаваме нов
+                product = new ProductEntity();
+                product.setId(UUID.randomUUID());
+                product.setName(cleanName);
+                product.setSku(cleanName);
+                product.setCreatedAt(OffsetDateTime.now());
 
-        PriceEntity priceEntity = new PriceEntity();
-        priceEntity.setId(UUID.randomUUID());
-        priceEntity.setProductId(product.getId());
-        priceEntity.setPrice(new BigDecimal(priceStr));
-        priceEntity.setTimestamp(OffsetDateTime.now());
-        priceEntity.setStoreId(storeId);
-        priceMapper.insert(priceEntity);
+                try {
+                    productMapper.insert(product);
+                } catch (Exception e) {
+                    // Ако гръмне тук, значи друга нишка го е създала току-що -> взимаме го
+                    product = productMapper.findBySku(cleanName);
+                    if (product == null) return;
+                }
+            }
 
-        System.out.println("Kaufland → " + name + " | " + priceStr + " лв");
+            // 2. Записваме цената
+            PriceEntity priceEntity = new PriceEntity();
+            priceEntity.setId(UUID.randomUUID());
+            priceEntity.setProductId(product.getId());
+            priceEntity.setStoreId(KAUFLAND_STORE_ID); // Ползваме константата за Kaufland
+            priceEntity.setPrice(new BigDecimal(priceStr));
+            priceEntity.setCurrency("BGN");
+            priceEntity.setCreatedAt(OffsetDateTime.now());
+
+            priceMapper.insert(priceEntity);
+            System.out.println("Kaufland: " + cleanName + " -> " + priceStr);
+
+        } catch (Exception e) {
+            System.err.println("Грешка при запис (Kaufland): " + cleanName + " - " + e.getMessage());
+        }
     }
 
     private List<Rectangle> findKauflandPriceZones(BufferedImage img) {

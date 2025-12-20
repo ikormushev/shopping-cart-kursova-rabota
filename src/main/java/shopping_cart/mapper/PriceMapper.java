@@ -14,23 +14,25 @@ public interface PriceMapper {
     List<PriceEntity> getAll();
 
     @Insert("""
-     INSERT INTO prices (id, product_id, store_id, price, timestamp)
+     INSERT INTO prices (id, product_id, store_id, price, currency, created_at) -- ТУК ВЕЧЕ СА 6 КОЛОНИ (+currency)
      VALUES (#{id, typeHandler=shopping_cart.config.UUIDTypeHandler},
              #{productId, typeHandler=shopping_cart.config.UUIDTypeHandler},
              #{storeId, typeHandler=shopping_cart.config.UUIDTypeHandler},
-             #{price}, #{timestamp})
+             #{price}, 
+             #{currency},  
+             #{createdAt})
      """)
-    void insert(PriceEntity price);
 
-    /**
-     * Намира всички цени за даден продукт + магазин + конкретна дата (без час)
-     * Използва се, за да не записваме една и съща цена по 10 пъти на ден
-     */
+    void insert(PriceEntity price);
+    @Delete("DELETE FROM shopping_cart.prices WHERE store_id = #{storeId}")
+    void deletePricesByStoreId(@Param("storeId") UUID storeId);
+
+
     @Select("""
      SELECT * FROM prices
      WHERE product_id = #{productId}
        AND store_id = #{storeId}
-       AND DATE(timestamp) = #{date}
+       AND DATE(created_at) = #{date} 
      """)
     List<PriceEntity> findByProductAndStoreAndDate(
             @Param("productId") UUID productId,
