@@ -8,13 +8,13 @@ import java.util.UUID;
 
 @Mapper
 public interface RetailerMapper {
-    @Select("SELECT * FROM retailer")
-    List<RetailerEntity> getAll();
-
-    @Insert("""
-        INSERT INTO retailer (id, name, website_url, created_at)
-        VALUES (#{id, typeHandler=shopping_cart.config.UUIDTypeHandler}, 
-        #{name}, #{websiteUrl}, #{createdAt})
+  @Insert(
+      """
+        INSERT INTO retailers (id, name, website_url, created_at)
+        VALUES (#{id, typeHandler=UUIDTypeHandler}, #{name}, #{websiteUrl}, NOW())
     """)
-    void insert(RetailerEntity retailer);
+  void insert(RetailerEntity retailer);
+
+  @Select("SELECT * FROM retailers WHERE id = #{id, typeHandler=UUIDTypeHandler}")
+  RetailerEntity findById(UUID id);
 }

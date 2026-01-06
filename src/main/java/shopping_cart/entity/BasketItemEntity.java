@@ -10,8 +10,6 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class BasketItemEntity {
-    private UUID id;
-    private UUID basketId;
     private UUID productId;
     private Integer quantity;
     private UUID addedBy;

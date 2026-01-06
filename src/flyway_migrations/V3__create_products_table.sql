@@ -1,8 +1,6 @@
 CREATE TABLE products (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     category VARCHAR(255),
-    description TEXT,
-    sku VARCHAR(100) UNIQUE,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+    sku VARCHAR(100) UNIQUE
 );

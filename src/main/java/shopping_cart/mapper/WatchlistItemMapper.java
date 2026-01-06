@@ -2,6 +2,8 @@ package shopping_cart.mapper;
 
 import org.apache.ibatis.annotations.*;
 import shopping_cart.entity.WatchlistItemEntity;
+
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 

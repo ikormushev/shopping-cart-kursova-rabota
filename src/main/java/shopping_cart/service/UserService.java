@@ -1,38 +1,43 @@
-//package shopping_cart.service;
+package shopping_cart.service;
 
-//import lombok.RequiredArgsConstructor;
-//import org.springframework.stereotype.Service;
-//import shopping_cart.entity.UserEntity;
-//import shopping_cart.mapper.UserMapper;
-//import shopping_cart.model.user.mapper.UserMapperStruct;
-//import shopping_cart.model.user.*;
-//import shopping_cart.exception.NotFoundException;
-//import shopping_cart.model.user.request.CreateUserRequestDto;
-//import shopping_cart.model.user.response.UserResponseDto;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.encrypt.TextEncryptor;
+import org.springframework.stereotype.Service;
+import shopping_cart.entity.UserEntity;
+import shopping_cart.mapper.UserMapper;
+import shopping_cart.model.domain.User;
 
-//import java.util.List;
-//import java.util.UUID;
+import java.util.UUID;
 
-//@Service
-//@RequiredArgsConstructor
-//public class UserService {
-//    private final UserMapperStruct userMapperStruct;
-//    private final UserMapper userMapper; // MyBatis mapper
+@Service
+@RequiredArgsConstructor
+public class UserService {
 
-//    public List<UserResponseDto> getAllUsers() {
-//        return userMapper.getAll().stream()
-//                .map(userMapperStruct::toResponse)
-//                .toList();
-//    }
+  private final UserMapper userMapper;
+  private final TextEncryptor textEncryptor;
 
-//    public UserResponseDto getUserById(UUID id) {
-//        var entity = userMapper.getUserById(id);
-//        if (entity == null) throw new NotFoundException("User not found: " + id);
-//        return userMapperStruct.toResponse(entity);
-//    }
+  public void saveUser(User user) {
+    var userEntity =
+        UserEntity.builder()
+            .email(user.getEmail())
+            .username(user.getUsername())
+            .passwordHash(textEncryptor.encrypt(user.getRawPassword()))
+            .location(user.getLocation())
+            .build();
 
-//    public void createUser(CreateUserRequestDto request) {
-//        UserEntity entity = userMapperStruct.toEntity(request);
-//        userMapper.insert(entity);
-//    }
-//}
+    userMapper.insert(userEntity);
+  }
+
+  public User findById(UUID id) {
+    var userEntity = userMapper.getById(id);
+    if (userEntity == null) {
+      throw new RuntimeException("No such user");
+    }
+    return User.builder()
+        .email(userEntity.getEmail())
+        .location(userEntity.getLocation())
+        .id(UUID.fromString(userEntity.getId()))
+        .rawPassword(textEncryptor.decrypt(userEntity.getPasswordHash()))
+        .build();
+  }
+}
