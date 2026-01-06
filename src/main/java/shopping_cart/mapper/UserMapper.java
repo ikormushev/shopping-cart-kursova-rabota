@@ -14,6 +14,9 @@ public interface UserMapper {
     @Select("SELECT * FROM app_user WHERE id = #{id}")
     UserEntity getById(UUID id);
 
+    @Select("SELECT * FROM app_user WHERE email = #{email}")
+    UserEntity getByEmail(String id);
+
     @Insert("""
         INSERT INTO app_user (id, username, email, password_hash, location, created_at)
         VALUES (#{id, typeHandler=shopping_cart.config.UUIDTypeHandler}, 

@@ -1,35 +1,29 @@
-//package shopping_cart.controller;
+package shopping_cart.controller;
 
-//import lombok.RequiredArgsConstructor;
-//import org.springframework.http.ResponseEntity;
-//import org.springframework.web.bind.annotation.*;
-//import shopping_cart.model.user.*;
-//import shopping_cart.model.user.request.CreateUserRequestDto;
-//import shopping_cart.model.user.response.UserResponseDto;
-//import shopping_cart.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import shopping_cart.facade.UserFacade;
+import shopping_cart.model.user.request.CreateUserRequest;
+import shopping_cart.model.user.request.LoginRequest;
+import shopping_cart.model.user.response.LoginUserResponse;
+import shopping_cart.model.user.response.RegisterUserAttemptResponse;
 
-//import java.util.List;
-//import java.util.UUID;
+@RestController
+@RequestMapping("/api/user")
+@RequiredArgsConstructor
+public class UserController {
+  private final UserFacade userFacade;
 
-//@RestController
-//@RequestMapping("/api/users")
-//@RequiredArgsConstructor
-//public class UserController {
-//    private final UserService userService;
+  @PutMapping
+  public ResponseEntity<RegisterUserAttemptResponse> registerUser(
+      @Valid @RequestBody CreateUserRequest createUserRequest) {
+    return ResponseEntity.ok(userFacade.register(createUserRequest));
+  }
 
-//    @GetMapping
-//    public ResponseEntity<List<UserResponseDto>> getAllUsers() {
-//        return ResponseEntity.ok(userService.getAllUsers());
-//    }
-
-//    @GetMapping("/{id}")
-//    public ResponseEntity<UserResponseDto> getUser(@PathVariable UUID id) {
-//        return ResponseEntity.ok(userService.getUserById(id));
-//    }
-
-//    @PostMapping
-//    public ResponseEntity<Void> createUser(@RequestBody CreateUserRequestDto request) {
-//        userService.createUser(request);
-//        return ResponseEntity.ok().build();
-//    }
-//}
+  @PostMapping("/login")
+  public ResponseEntity<LoginUserResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+    return ResponseEntity.ok(userFacade.login(loginRequest));
+  }
+}

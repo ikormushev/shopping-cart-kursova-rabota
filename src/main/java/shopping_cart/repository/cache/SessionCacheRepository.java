@@ -11,30 +11,34 @@ import java.util.concurrent.ConcurrentHashMap;
 @Repository
 @Slf4j
 public class SessionCacheRepository {
-    private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
-    private final Map<UUID, LocalDateTime> sessionKeepAlive = new ConcurrentHashMap<>();
+  private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
+  private final Map<UUID, LocalDateTime> sessionKeepAlive = new ConcurrentHashMap<>();
 
-    public void put(UUID sessionId, Session session) {
-        sessions.put(sessionId, session);
-        updateSessionKeepAlive(sessionId);
-    }
+  public void put(UUID sessionId, Session session) {
+    sessions.put(sessionId, session);
+    updateSessionKeepAlive(sessionId);
+  }
 
-    public Session get(UUID sessionId) {
-        return sessions.get(sessionId);
-    }
+  public Session get(UUID sessionId) {
+    return sessions.get(sessionId);
+  }
 
-    public void updateSessionKeepAlive(UUID sessionId) {
-        var newExpiryTime = LocalDateTime.now().plusMinutes(15);
-        sessionKeepAlive.put(sessionId, newExpiryTime);
-    }
+  public void updateSessionKeepAlive(UUID sessionId) {
+    var newExpiryTime = LocalDateTime.now().plusMinutes(15);
+    sessionKeepAlive.put(sessionId, newExpiryTime);
+  }
 
-    public void evictSession(UUID sessionId) {
-        sessions.remove(sessionId);
-        sessionKeepAlive.remove(sessionId);
-        log.info("Session {} evicted from cache", sessionId);
-    }
+  public void evictSession(UUID sessionId) {
+    sessions.remove(sessionId);
+    sessionKeepAlive.remove(sessionId);
+    log.info("Session {} evicted from cache", sessionId);
+  }
 
-    public Map<UUID, LocalDateTime> getAllKeepAlives() {
-        return Collections.unmodifiableMap(sessionKeepAlive);
-    }
+  public Map<UUID, LocalDateTime> getAllKeepAlives() {
+    return Collections.unmodifiableMap(sessionKeepAlive);
+  }
+
+  public Map<UUID, Session> getAllSessions() {
+    return Collections.unmodifiableMap(sessions);
+  }
 }
