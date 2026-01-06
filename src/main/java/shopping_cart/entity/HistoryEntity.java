@@ -13,11 +13,11 @@ import java.util.UUID;
 @NoArgsConstructor
 @ToString
 public class HistoryEntity {
-  private UUID id;
-  private UUID userId;
-  private UUID basketId;
+  private String id;
+  private String userId;
+  private String basketId;
   private String basketName;
-  private BigDecimal totalSpent;
+  private Double totalSpent;
   private String currency;
   private LocalDateTime closedAt;
 

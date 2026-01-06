@@ -1,6 +1,9 @@
 package shopping_cart.model.user.response;
 
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 import shopping_cart.model.response.BaseResponse;
 
@@ -9,6 +12,4 @@ import shopping_cart.model.response.BaseResponse;
 @SuperBuilder
 @NoArgsConstructor
 @ToString(callSuper = true)
-public class RegisterUserAttemptResponse extends BaseResponse {
-  private String uniqueCode;
-}
+public class UpdatePasswordResponse extends BaseResponse {}

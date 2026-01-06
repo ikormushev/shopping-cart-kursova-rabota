@@ -13,5 +13,6 @@ public class User {
   private String username;
   private String email;
   private String rawPassword;
-  private String location;
+  private String uniqueCode;
+
 }

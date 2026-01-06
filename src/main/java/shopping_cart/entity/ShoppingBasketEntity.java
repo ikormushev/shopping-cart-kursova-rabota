@@ -10,8 +10,8 @@ import java.util.UUID;
 @Data
 @Builder
 public class ShoppingBasketEntity {
-  private UUID id;
-  private UUID userId;
+  private String id;
+  private String userId;
   private String name;
   private Boolean isShared;
   private LocalDateTime createdAt;

@@ -8,6 +8,7 @@ import shopping_cart.mapper.UserMapper;
 import shopping_cart.model.domain.User;
 import shopping_cart.model.user.request.CreateUserRequest;
 import shopping_cart.model.user.response.RegisterUserAttemptResponse;
+import shopping_cart.model.user.response.UpdatePasswordResponse;
 
 import java.util.Collections;
 import java.util.LinkedList;
@@ -20,17 +21,21 @@ public class UserService {
 
   private final UserMapper userMapper;
   private final TextEncryptor textEncryptor;
+  private final SecurityService securityService;
 
   public RegisterUserAttemptResponse saveUser(CreateUserRequest user) {
     int errorCode = 1000;
     String message = "OK";
+    String uniqueCode = "";
     if (!isUserRegistered(user)) {
+      uniqueCode = securityService.generateSecureToken();
       var userEntity =
           UserEntity.builder()
               .email(user.getEmail())
               .username(user.getUsername())
               .passwordHash(textEncryptor.encrypt(user.getPassword()))
               .location(user.getLocation())
+              .uniqueCode(uniqueCode)
               .build();
 
       userMapper.insert(userEntity);
@@ -39,7 +44,11 @@ public class UserService {
       message = "Email already used";
     }
 
-    return RegisterUserAttemptResponse.builder().errorCode(errorCode).message(message).build();
+    return RegisterUserAttemptResponse.builder()
+        .errorCode(errorCode)
+        .message(message)
+        .uniqueCode(uniqueCode)
+        .build();
   }
 
   public User findById(UUID id) {
@@ -49,7 +58,7 @@ public class UserService {
     }
     return User.builder()
         .email(userEntity.getEmail())
-        .location(userEntity.getLocation())
+        .uniqueCode(userEntity.getUniqueCode())
         .id(UUID.fromString(userEntity.getId()))
         .rawPassword(textEncryptor.decrypt(userEntity.getPasswordHash()))
         .build();
@@ -65,8 +74,8 @@ public class UserService {
       users.add(
           User.builder()
               .email(userEntity.getEmail())
-              .location(userEntity.getLocation())
               .id(UUID.fromString(userEntity.getId()))
+              .uniqueCode(userEntity.getUniqueCode())
               .rawPassword(textEncryptor.decrypt(userEntity.getPasswordHash()))
               .build());
     }
@@ -75,7 +84,8 @@ public class UserService {
 
   private boolean isUserRegistered(CreateUserRequest user) {
     var userResult = userMapper.getByEmail(user.getEmail());
-    return userResult == null;
+    return userResult != null
+        && user.getPassword().equalsIgnoreCase(user.getPasswordConfirmation());
   }
 
   public User getByEmail(String email) {
@@ -85,8 +95,25 @@ public class UserService {
     return User.builder()
         .id(UUID.fromString(entity.getId()))
         .email(entity.getEmail())
-        .location(entity.getLocation())
+        .uniqueCode(entity.getUniqueCode())
         .rawPassword(textEncryptor.decrypt(entity.getPasswordHash()))
+        .build();
+  }
+
+  public UpdatePasswordResponse updatePassword(
+      String token, String newPassword, String confirmPassword) {
+    if (!newPassword.equals(confirmPassword)) {
+      throw new RuntimeException("Passwords do not match!");
+    }
+
+    if (!newPassword.equalsIgnoreCase(confirmPassword)) {
+      throw new RuntimeException("New passwords doesn't match");
+    }
+
+    userMapper.updatePasswordByToken(token, textEncryptor.encrypt(newPassword));
+    return UpdatePasswordResponse.builder()
+        .message("Password Updated successfully")
+        .errorCode(1000)
         .build();
   }
 }

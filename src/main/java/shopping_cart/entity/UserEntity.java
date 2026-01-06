@@ -12,4 +12,5 @@ public class UserEntity {
   private String passwordHash;
   private String location;
   private LocalDateTime createdAt;
+  private String uniqueCode;
 }

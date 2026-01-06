@@ -11,6 +11,7 @@ import shopping_cart.model.user.request.CreateUserRequest;
 import shopping_cart.model.user.request.LoginRequest;
 import shopping_cart.model.user.response.LoginUserResponse;
 import shopping_cart.model.user.response.RegisterUserAttemptResponse;
+import shopping_cart.model.user.response.UpdatePasswordResponse;
 import shopping_cart.repository.cache.SessionCacheRepository;
 import shopping_cart.service.UserService;
 
@@ -62,5 +63,9 @@ public class UserFacade {
                 .message("OK")
                 .sessionId(newSessionId.toString())
                 .build();
+    }
+
+    public UpdatePasswordResponse updatePassword(String token, String newPassword, String confirmPassword) {
+        return userService.updatePassword(token, newPassword, confirmPassword);
     }
 }
