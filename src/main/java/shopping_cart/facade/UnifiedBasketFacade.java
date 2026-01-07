@@ -5,12 +5,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import shopping_cart.entity.BasketItemEntity;
 import shopping_cart.entity.ShoppingBasketEntity;
-import shopping_cart.entity.StorePriceCalculation;
-import shopping_cart.mapper.BasketMapper;
+import shopping_cart.model.domain.BasketItem;
+import shopping_cart.model.domain.ShoppingBasketDto;
 import shopping_cart.model.session.Session;
 import shopping_cart.repository.cache.SessionCacheRepository;
 import shopping_cart.service.BasketService;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -43,8 +44,13 @@ public class UnifiedBasketFacade {
   }
 
   @Transactional
-  public void addItem(String sessionId, String productId, int quantity) {
+  public ShoppingBasketDto addItem(
+      String sessionId, String productId, String cartId, int quantity) {
     var session = getSession(sessionId);
+    if (!session.getCartId().toString().equalsIgnoreCase(cartId)) {
+      session.setCartId(UUID.fromString(cartId));
+      sessionCache.update(UUID.fromString(sessionId), session);
+    }
     String basketId = session.getCartId().toString();
 
     validateMembership(basketId, session.getUserId());
@@ -56,26 +62,73 @@ public class UnifiedBasketFacade {
             .productId(productId)
             .quantity(quantity)
             .addedBy(session.getUserId())
-            .createdAt(OffsetDateTime.now())
+            .addedAt(LocalDateTime.now())
             .build();
 
     basketService.addProductToBasket(item);
+    return getBasketDto(basketId);
   }
 
-  @Transactional
-  public void removeItem(String sessionId, String productId) {
+  private ShoppingBasketDto getBasketDto(String basketId) {
+    ShoppingBasketEntity basket = basketService.getBasket(basketId);
+    if (basket == null) throw new RuntimeException("Basket not found");
+
+    List<BasketItemEntity> itemEntities = basketService.findItemsByBasketId(basketId);
+
+    List<BasketItem> items =
+        itemEntities.stream()
+            .map(
+                entity ->
+                    BasketItem.builder()
+                        .productId(entity.getProductId())
+                        .productName(entity.getRawName())
+                        .price(entity.getPrice())
+                        .quantity(entity.getQuantity())
+                        .storeName(entity.getStoreName())
+                        .build())
+            .toList();
+
+    BigDecimal total =
+        items.stream()
+            .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    return ShoppingBasketDto.builder()
+        .id(basket.getId())
+        .name(basket.getName())
+        .ownerId(UUID.fromString(basket.getOwnerId()))
+        .shared(basket.getShareCode() != null)
+        .shareCode(basket.getShareCode())
+        .items(items)
+        .total(total)
+        .build();
+  }
+
+  public ShoppingBasketDto removeItem(String sessionId, String productId) {
     var session = getSession(sessionId);
     String basketId = session.getCartId().toString();
 
     validateMembership(basketId, session.getUserId());
-
     basketService.removeItemFromBasket(basketId, productId);
+
+    return getBasketDto(basketId);
   }
 
   @Transactional
-  public void updateQuantity(String sessionId, String basketItemId, int quantity) {
+  public ShoppingBasketDto updateQuantity(String sessionId, String basketItemId, int quantity) {
     var session = getSession(sessionId);
-    basketService.updateItemQuantity(basketItemId, quantity);
+    BasketItemEntity item =
+        basketService.findItemsByBasketId(session.getCartId().toString(), basketItemId);
+    if (item == null) throw new RuntimeException("Item not found");
+
+    validateMembership(item.getBasketId(), session.getUserId());
+    if (quantity <= 0) {
+      basketService.removeItemFromBasket(item.getBasketId(), item.getProductId());
+    } else {
+      basketService.updateItemQuantity(basketItemId, quantity);
+    }
+
+    return getBasketDto(item.getBasketId());
   }
 
   @Transactional
@@ -94,6 +147,28 @@ public class UnifiedBasketFacade {
   public List<BasketItemEntity> getCurrentOrder(String sessionId) {
     var session = getSession(sessionId);
     return basketService.findItemsByBasketId(session.getCartId().toString());
+  }
+
+  public List<ShoppingBasketEntity> getAllCarts(String sessionId) {
+    var session = getSession(sessionId);
+    return basketService.findAllForUser(session.getUserId());
+  }
+
+  public String selectBasket(String sessionId, String basketId) {
+    var session = sessionCache.get(UUID.fromString(sessionId));
+    StringBuilder builder = new StringBuilder();
+    if (session == null) {
+      builder.append("Session Expired please re-log again");
+      return builder.toString();
+    }
+    var basketResult = basketService.getBasket(basketId);
+    if (basketResult != null) {
+      builder.append("basket: ").append(basketResult.getName()).append(" selected successfully");
+      session.setCartId(UUID.fromString(basketId));
+      sessionCache.update(UUID.fromString(sessionId), session);
+      return builder.toString();
+    }
+    return builder.append("Cart with id").append(basketId).append("not found").toString();
   }
 
   private void validateMembership(String basketId, String userId) {

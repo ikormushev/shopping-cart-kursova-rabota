@@ -47,6 +47,14 @@ public class BasketService {
     return basketMapper.findItemsByBasketId(basketId);
   }
 
+  public BasketItemEntity findItemsByBasketId(String basketId, String productId) {
+    return basketMapper.findItemById(basketId, productId);
+  }
+
+  public List<ShoppingBasketEntity> findAllForUser(String userId) {
+    return basketMapper.findAllByUserId(userId);
+  }
+
   public String getUserRole(String basketId, String userId) {
     return basketMapper.getUserRole(basketId, userId);
   }

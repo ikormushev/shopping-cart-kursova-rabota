@@ -90,7 +90,7 @@ public interface ProductMapper {
         WHERE p.raw_name ILIKE CONCAT('%', #{query}, '%')
     """)
   @ResultMap("ProductWithStoreMap")
-  List<ProductEntity> searchProductsByName(@Param("query") String query);
+  List<ProductEntity> searchProductsByName();
 
   @Select(
       """

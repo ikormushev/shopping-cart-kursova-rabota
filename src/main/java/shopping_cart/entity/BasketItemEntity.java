@@ -3,8 +3,8 @@ package shopping_cart.entity;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -17,7 +17,7 @@ public class BasketItemEntity {
   private String productId;
   private Integer quantity;
   private String addedBy;
-  private OffsetDateTime createdAt;
+  private LocalDateTime addedAt;
 
   private String rawName;
   private BigDecimal price;

@@ -31,8 +31,8 @@ public class ProductFacade {
     return productMapper.findAllProducts().stream().map(this::mapToResponseDTO).toList();
   }
 
-  public List<ProductResponseDTO> searchProducts(String query) {
-    return productMapper.searchProductsByName(query).stream().map(this::mapToResponseDTO).toList();
+  public List<ProductResponseDTO> searchProducts() {
+    return productMapper.searchProductsByName().stream().map(this::mapToResponseDTO).toList();
   }
 
   public ProductResponseDTO getProductById(String productId) {

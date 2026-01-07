@@ -32,7 +32,7 @@ public class ProductController {
     if (query == null || query.isBlank()) {
       return ResponseEntity.ok(productFacade.getAllAvailableProducts());
     }
-    return ResponseEntity.ok(productFacade.searchProducts(query));
+    return ResponseEntity.ok(productFacade.searchProducts());
   }
 
   @GetMapping("/{productId}")

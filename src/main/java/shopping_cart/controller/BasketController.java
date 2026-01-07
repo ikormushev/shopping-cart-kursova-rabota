@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import shopping_cart.entity.BasketItemEntity;
+import shopping_cart.entity.ShoppingBasketEntity;
 import shopping_cart.facade.UnifiedBasketFacade;
+import shopping_cart.model.domain.ShoppingBasketDto;
 
 import java.util.List;
 
@@ -22,12 +24,12 @@ public class BasketController {
   }
 
   @PostMapping("/add")
-  public ResponseEntity<Void> addItem(
+  public ResponseEntity<ShoppingBasketDto> addItem(
       @RequestHeader("Session-Id") String sessionId,
       @RequestParam String productId,
+      @RequestParam String cartId,
       @RequestParam int quantity) {
-    basketFacade.addItem(sessionId, productId, quantity);
-    return ResponseEntity.ok().build();
+    return ResponseEntity.ok(basketFacade.addItem(sessionId, productId, cartId, quantity));
   }
 
   @GetMapping("/current")
@@ -36,20 +38,31 @@ public class BasketController {
     return ResponseEntity.ok(basketFacade.getCurrentOrder(sessionId));
   }
 
+  @GetMapping("/get/user/carts")
+  public ResponseEntity<List<ShoppingBasketEntity>> getUserCarts(
+      @RequestHeader("Session-Id") String sessionId) {
+    return ResponseEntity.ok(basketFacade.getAllCarts(sessionId));
+  }
+
+  @PostMapping("/select/cart")
+  public ResponseEntity<String> selectCarts(
+      @RequestHeader("Session-Id") String sessionId, @RequestParam String basketId) {
+    return ResponseEntity.ok(basketFacade.selectBasket(sessionId, basketId));
+  }
+
   @PatchMapping("/quantity")
-  public ResponseEntity<Void> updateQuantity(
+  public ResponseEntity<ShoppingBasketDto> updateQuantity(
       @RequestHeader("Session-Id") String sessionId,
       @RequestParam String basketItemId,
       @RequestParam int quantity) {
-    basketFacade.updateQuantity(sessionId, basketItemId, quantity);
-    return ResponseEntity.ok().build();
+    return ResponseEntity.ok(basketFacade.updateQuantity(sessionId, basketItemId, quantity));
   }
 
   @DeleteMapping("/item/{productId}")
-  public ResponseEntity<Void> removeItem(
+  public ResponseEntity<ShoppingBasketDto> removeItem(
       @RequestHeader("Session-Id") String sessionId, @PathVariable String productId) {
     basketFacade.removeItem(sessionId, productId);
-    return ResponseEntity.ok().build();
+    return ResponseEntity.ok(basketFacade.removeItem(sessionId, productId));
   }
 
   @PostMapping("/join")
