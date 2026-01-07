@@ -2,11 +2,13 @@ package shopping_cart.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import shopping_cart.dto.PriceComparisonDto;
 import shopping_cart.entity.BasketItemEntity;
 import shopping_cart.entity.BasketMemberEntity;
 import shopping_cart.entity.ShoppingBasketEntity;
 import shopping_cart.mapper.BasketMapper;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -25,6 +27,14 @@ public class BasketService {
 
   public void addCollaborator(String basketId, String userId) {
     basketMapper.addMember(new BasketMemberEntity(basketId, userId, "CONTRIBUTOR"));
+  }
+
+  public List<String> getMemberUsernames(String basketId) {
+    return basketMapper.getMemberUsernames(basketId);
+  }
+
+  public PriceComparisonDto findCheaperOption(String rawName, BigDecimal price, String productId) {
+    return basketMapper.findCheaperOption(rawName, price, productId);
   }
 
   public void addProductToBasket(BasketItemEntity item) {
@@ -52,7 +62,7 @@ public class BasketService {
   }
 
   public List<ShoppingBasketEntity> findAllForUser(String userId) {
-    return basketMapper.findAllByUserId(userId);
+    return basketMapper.findAllCartByUserId(userId);
   }
 
   public String getUserRole(String basketId, String userId) {

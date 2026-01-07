@@ -20,7 +20,8 @@ import static org.springframework.security.config.Customizer.withDefaults;
 public class SecurityConfig {
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    http.csrf(AbstractHttpConfigurer::disable) // Required to allow POST/PUT/DELETE from Swagger
+    http.cors(withDefaults())
+        .csrf(AbstractHttpConfigurer::disable) // Required to allow POST/PUT/DELETE from Swagger
         .authorizeHttpRequests(
             auth ->
                 auth
@@ -60,14 +61,13 @@ public class SecurityConfig {
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
-    // Позволяваме всичко за развойна среда
-    configuration.setAllowedOrigins(List.of("*"));
+    configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    // КРИТИЧНО: Добавяме Session-Id, защото го ползваш в контролерите си
-    configuration.setAllowedHeaders(
-        List.of("Authorization", "Content-Type", "Session-Id", "X-Requested-With"));
     configuration.setExposedHeaders(List.of("Session-Id"));
-
+    configuration.setAllowedHeaders(
+        List.of(
+            "Authorization", "Content-Type", "Session-Id", "X-Requested-With", "Accept", "Origin"));
+    configuration.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
     return source;

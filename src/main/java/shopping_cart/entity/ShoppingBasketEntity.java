@@ -18,5 +18,6 @@ public class ShoppingBasketEntity {
   private Boolean isShared;
   private String ownerId;
   private String shareCode;
+  private List<String> members;
   private LocalDateTime createdAt;
 }

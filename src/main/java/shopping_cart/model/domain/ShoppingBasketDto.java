@@ -16,5 +16,7 @@ public class ShoppingBasketDto {
   private final boolean shared;
   private final String shareCode;
   private final List<BasketItem> items;
+  private List<String> members;
+  private final BigDecimal totalFromSuggestions;
   private final BigDecimal total;
 }

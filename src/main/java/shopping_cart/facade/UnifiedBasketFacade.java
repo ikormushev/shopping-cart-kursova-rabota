@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import shopping_cart.entity.BasketItemEntity;
-import shopping_cart.entity.HistoryEntity;
 import shopping_cart.entity.ShoppingBasketEntity;
 import shopping_cart.model.domain.BasketItem;
 import shopping_cart.model.domain.ShoppingBasketDto;
@@ -15,7 +14,6 @@ import shopping_cart.service.BasketService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -69,7 +67,7 @@ public class UnifiedBasketFacade {
             .build();
 
     basketService.addProductToBasket(item);
-    return getBasketDto(basketId);
+    return getEnrichedBasketResponse(basketId);
   }
 
   private ShoppingBasketDto getBasketDto(String basketId) {
@@ -161,14 +159,11 @@ public class UnifiedBasketFacade {
   public BasketSelectionResponse selectBasket(String sessionId, String basketId) {
     var session = getSession(sessionId);
 
-    // 1. Сменяме активната количка
     session.setCartId(UUID.fromString(basketId));
     sessionCache.update(UUID.fromString(sessionId), session);
 
-    // 2. Вземаме текущите продукти
     var currentBasket = getBasketDto(basketId);
 
-    // 3. ПРЕИЗПОЛЗВАМЕ логиката от HistoryFacade за историята
     var history = historyFacade.getHistory(sessionId);
 
     return BasketSelectionResponse.builder()
@@ -187,5 +182,61 @@ public class UnifiedBasketFacade {
     var session = sessionCache.get(UUID.fromString(sessionId));
     if (session == null) throw new RuntimeException("Invalid Session");
     return session;
+  }
+
+  private ShoppingBasketDto getEnrichedBasketResponse(String basketId) {
+    var basket = basketService.getBasket(basketId);
+    var members = basketService.getMemberUsernames(basketId);
+    var itemEntities = basketService.findItemsByBasketId(basketId);
+
+    List<BasketItem> domainItems =
+        itemEntities.stream()
+            .map(
+                entity -> {
+                  var cheaperOption =
+                      basketService.findCheaperOption(
+                          entity.getRawName(), entity.getPrice(), entity.getProductId());
+
+                  return BasketItem.builder()
+                      .productId(entity.getProductId())
+                      .productName(entity.getRawName())
+                      .quantity(entity.getQuantity())
+                      .storeName(entity.getStoreName())
+                      .price(entity.getPrice())
+                      .lowerPriceItem(cheaperOption)
+                      .build();
+                })
+            .toList();
+
+    BigDecimal potentialTotal = calculatePotentialTotal(domainItems);
+
+    return ShoppingBasketDto.builder()
+        .id(basket.getId())
+        .name(basket.getName())
+        .ownerId(UUID.fromString(basket.getOwnerId()))
+        .members(members)
+        .items(domainItems)
+        .total(calculateTotal(domainItems))
+        .totalFromSuggestions(potentialTotal)
+        .build();
+  }
+
+  private BigDecimal calculatePotentialTotal(List<BasketItem> items) {
+    return items.stream()
+        .map(
+            item -> {
+              BigDecimal priceToUse =
+                  (item.getLowerPriceItem() != null)
+                      ? item.getLowerPriceItem().getPrice()
+                      : item.getPrice();
+              return priceToUse.multiply(BigDecimal.valueOf(item.getQuantity()));
+            })
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+  }
+
+  private BigDecimal calculateTotal(List<BasketItem> items) {
+    return items.stream()
+        .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
   }
 }
