@@ -1,18 +1,22 @@
 package shopping_cart.entity;
 
 import lombok.*;
+
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
-@AllArgsConstructor
 @Builder
+@AllArgsConstructor
 public class ShoppingBasketEntity {
-    private UUID id;
-    private UUID userId;
-    private String name;
-    private Boolean isShared;
-    private OffsetDateTime createdAt;
+  private String id;
+  private String userId;
+  private String name;
+  private Boolean isShared;
+  private String ownerId;
+  private String shareCode;
+  private LocalDateTime createdAt;
 }

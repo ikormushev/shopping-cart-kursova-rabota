@@ -35,4 +35,8 @@ billa:
 
 kaufland:
     url: "https://www.kaufland.bg/broshuri.html"
+security:
+  secret:
+    salt: f7a1bd2004a4286705d701b7da38c58b
+    key: ffbc74fc8d77f4f25a388c495c7340633431da1034fe6758e407676a559b2d12
 

@@ -11,10 +11,11 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class PriceEntity {
-    private UUID id;
-    private UUID productId;
-    private UUID storeId;
-    private BigDecimal price;
-    private String currency;
-    private OffsetDateTime createdAt;
+  private String id;
+  private String productId;
+  private String storeId;
+  private BigDecimal price;
+  private String currency;
+  private String storeName;
+  private OffsetDateTime createdAt;
 }
