@@ -5,15 +5,12 @@ import lombok.*;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class BasketMemberEntity {
-    private UUID id;
-    private UUID basketId;
-    private UUID userId;
-    private String role;
-    private OffsetDateTime createdAt;
+  private String basketId;
+  private String userId;
+  private String role;
 }

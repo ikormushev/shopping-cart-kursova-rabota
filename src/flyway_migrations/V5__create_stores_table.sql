@@ -1,8 +1,0 @@
-CREATE TABLE stores (
-    id UUID PRIMARY KEY,
-    retailer_id UUID REFERENCES retailer(id) ON DELETE CASCADE,
-    address VARCHAR(255) NOT NULL,
-    latitude DOUBLE PRECISION,
-    longitude DOUBLE PRECISION,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
-);
