@@ -4,8 +4,6 @@ import org.apache.ibatis.annotations.*;
 import shopping_cart.entity.ProductEntity;
 import shopping_cart.config.UUIDTypeHandler;
 
-import java.util.List;
-import java.util.UUID;
 
 @Mapper
 public interface ProductMapper {

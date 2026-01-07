@@ -24,7 +24,7 @@ public interface PriceMapper {
      """)
 
     void insert(PriceEntity price);
-    @Delete("DELETE FROM shopping_cart.prices WHERE store_id = #{storeId}")
+    @Delete("DELETE FROM prices WHERE store_id = #{storeId}")
     void deletePricesByStoreId(@Param("storeId") UUID storeId);
 
 

@@ -152,23 +152,19 @@ public class KauflandService {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
 
-            // 1. ТЪРСИМ ЦЕНА (XX,XX ЛВ) - Това е нашият "котва"
             if (line.matches(".*?(\\d+[,.]\\d{2})\\s*(ЛВ|лв|BGN).*")) {
                 String price = extractPrice(line);
 
-                // 2. ИГНОРИРАМЕ грешни цени (като датата 15.12)
                 if (line.contains("15.12") || line.contains("21.12")) continue;
 
                 Deque<String> nameParts = new LinkedList<>();
 
-                // Връщаме се МАКСИМУМ 2 реда назад
                 for (int j = 1; j <= 2 && (i - j) >= 0; j++) {
                     String prev = lines[i - j].trim();
 
-                    // СПИРАЧКИ (Simple & Direct):
                     if (prev.isEmpty() || prev.matches(".*\\d.*") || prev.contains("=")) break;
 
-                    // Игнорираме очевиден шум (инструкции за цветя)
+                    // Игнорираме
                     if (prev.toUpperCase().matches(".*(СЛЪНЦЕ|СВЕТЛИНА|ПОЛИВАНЕ|СЯНКА|ОБИЛНО|УМЕРЕНО).*")) continue;
 
                     nameParts.addFirst(prev);
@@ -188,20 +184,7 @@ public class KauflandService {
         }
     }
 
-    // Максимално опростен метод за чистене
-    private String cleanProductName(String rawName) {
-        String name = rawName.trim();
 
-        // 1. Махаме всичко в скоби
-        name = name.replaceAll("\\(.*?\\)", "");
-
-        if (name.contains("   ") || name.contains(" . ")) {
-            String[] parts = name.split("(\\s{3,}|\\s\\.\\s)");
-            if (parts.length > 0) name = parts[0];
-        }
-
-        return name.replaceAll("^[.\\s\\-]+|[.\\s\\-]+$", "").trim();
-    }
 
     private String extractPrice(String line) {
         Matcher matcher = Pattern.compile("(\\d+[,.]\\d{2})").matcher(line);
@@ -263,7 +246,6 @@ public class KauflandService {
                 try {
                     productMapper.insert(product);
                 } catch (Exception e) {
-                    // Ако гръмне тук, значи друга нишка го е създала току-що -> взимаме го
                     product = productMapper.findBySku(cleanName);
                     if (product == null) return;
                 }
