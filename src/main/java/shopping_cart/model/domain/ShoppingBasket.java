@@ -9,7 +9,7 @@ import java.util.UUID;
 @Data
 @Builder
 public class ShoppingBasket {
-  private final UUID id;
+  private final String id;
   private final String name;
   private final UUID ownerId;
   private final boolean shared;

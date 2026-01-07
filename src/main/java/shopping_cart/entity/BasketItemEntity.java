@@ -1,6 +1,8 @@
 package shopping_cart.entity;
 
 import lombok.*;
+
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -10,9 +12,14 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class BasketItemEntity {
-    private UUID productId;
-    private Integer quantity;
-    private UUID addedBy;
-    private OffsetDateTime createdAt;
-}
+  private String id;
+  private String basketId;
+  private String productId;
+  private Integer quantity;
+  private String addedBy;
+  private OffsetDateTime createdAt;
 
+  private String rawName;
+  private BigDecimal price;
+  private String storeName;
+}

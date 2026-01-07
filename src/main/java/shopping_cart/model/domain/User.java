@@ -9,7 +9,7 @@ import lombok.Getter;
 @Getter
 @Builder
 public class User {
-  private UUID id;
+  private String id;
   private String username;
   private String email;
   private String rawPassword;

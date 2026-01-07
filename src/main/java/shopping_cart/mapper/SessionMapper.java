@@ -27,7 +27,7 @@ public interface SessionMapper {
   @Update(
       """
               UPDATE session
-              SET status = #{status}, updated_at = NOW(), cart_id = #{cartId}
+              SET status = #{status}, updated_at = NOW(), cart_id = #{cartId}, basket_id = #{basketId}
               WHERE session_id = #{sessionId}
           """)
   void updateSession(
@@ -37,4 +37,11 @@ public interface SessionMapper {
 
   @Delete("DELETE FROM session WHERE session_id = #{sessionId}")
   void delete(String sessionId);
+
+    @Select("""
+        SELECT basket_id FROM sessions 
+        WHERE user_id = #{userId} AND status = 'ACTIVE' 
+        ORDER BY updated_at DESC LIMIT 1
+    """)
+    String findLastActiveCartId(String userId);
 }

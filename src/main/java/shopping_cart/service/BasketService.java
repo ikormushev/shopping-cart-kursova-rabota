@@ -2,29 +2,52 @@ package shopping_cart.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import shopping_cart.entity.BasketItemEntity;
+import shopping_cart.entity.BasketMemberEntity;
 import shopping_cart.entity.ShoppingBasketEntity;
-import shopping_cart.entity.StorePriceCalculation;
 import shopping_cart.mapper.BasketMapper;
 
-import java.util.UUID;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class BasketService {
-    private final BasketMapper basketMapper;
+  private final BasketMapper basketMapper;
 
-    public ShoppingBasketEntity getBasket(String id) {
-        return basketMapper.getById(id);
-    }
+  public ShoppingBasketEntity getBasket(String id) {
+    return basketMapper.findById(id);
+  }
 
-    public void createBasket(ShoppingBasketEntity basket) {
-        if (basket.getId() == null) {
-            basket.setId(UUID.randomUUID().toString());
-        }
-        basketMapper.insert(basket);
-    }
+  public void createBasket(ShoppingBasketEntity basket) {
+    basketMapper.createBasket(basket);
+    basketMapper.addMember(new BasketMemberEntity(basket.getId(), basket.getOwnerId(), "OWNER"));
+  }
 
-    public StorePriceCalculation calculateCheapestStore(String basketId) {
-        return basketMapper.getCheapestStore(basketId);
-    }
+  public void addCollaborator(String basketId, String userId) {
+    basketMapper.addMember(new BasketMemberEntity(basketId, userId, "CONTRIBUTOR"));
+  }
+
+  public void addProductToBasket(BasketItemEntity item) {
+    basketMapper.addItem(item);
+  }
+
+  public void updateItemQuantity(String itemId, int quantity) {
+    basketMapper.updateQuantity(itemId, quantity);
+  }
+
+  public void removeItemFromBasket(String basketId, String productId) {
+    basketMapper.removeItem(basketId, productId);
+  }
+
+  public String getIdBySharedCode(String sharedCode) {
+    return basketMapper.findBasketIdByShareCode(sharedCode);
+  }
+
+  public List<BasketItemEntity> findItemsByBasketId(String basketId) {
+    return basketMapper.findItemsByBasketId(basketId);
+  }
+
+  public String getUserRole(String basketId, String userId) {
+    return basketMapper.getUserRole(basketId, userId);
+  }
 }

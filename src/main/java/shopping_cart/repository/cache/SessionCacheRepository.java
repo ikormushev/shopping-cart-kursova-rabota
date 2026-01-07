@@ -28,6 +28,16 @@ public class SessionCacheRepository {
     sessionKeepAlive.put(sessionId, newExpiryTime);
   }
 
+  public void update(UUID sessionId, Session session) {
+    if (sessions.containsKey(sessionId)) {
+      sessions.put(sessionId, session);
+      updateSessionKeepAlive(sessionId);
+      log.info("Session {} updated in cache with cartId: {}", sessionId, session.getCartId());
+    } else {
+      log.warn("Attempted to update non-existent session: {}", sessionId);
+    }
+  }
+
   public void evictSession(UUID sessionId) {
     sessions.remove(sessionId);
     sessionKeepAlive.remove(sessionId);

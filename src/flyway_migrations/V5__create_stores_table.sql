@@ -1,8 +1,6 @@
 CREATE TABLE stores (
     id VARCHAR(255) PRIMARY KEY,
-    retailer_id VARCHAR(255) REFERENCES retailer(id) ON DELETE CASCADE,
-    address VARCHAR(255) NOT NULL,
-    latitude DOUBLE PRECISION,
-    longitude DOUBLE PRECISION,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+    name VARCHAR(255) NOT NULL,
+    website_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT NOW()
 );

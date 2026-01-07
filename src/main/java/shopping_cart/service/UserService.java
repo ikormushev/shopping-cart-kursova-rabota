@@ -51,7 +51,7 @@ public class UserService {
         .build();
   }
 
-  public User findById(UUID id) {
+  public User findById(String id) {
     var userEntity = userMapper.getById(id);
     if (userEntity == null) {
       throw new RuntimeException("No such user");
@@ -59,12 +59,12 @@ public class UserService {
     return User.builder()
         .email(userEntity.getEmail())
         .uniqueCode(userEntity.getUniqueCode())
-        .id(UUID.fromString(userEntity.getId()))
+        .id(userEntity.getId())
         .rawPassword(textEncryptor.decrypt(userEntity.getPasswordHash()))
         .build();
   }
 
-  public List<User> getAll(UUID id) {
+  public List<User> getAll(String id) {
     var userEntities = userMapper.getAll();
     if (userEntities.isEmpty()) {
       return Collections.emptyList();
@@ -74,7 +74,7 @@ public class UserService {
       users.add(
           User.builder()
               .email(userEntity.getEmail())
-              .id(UUID.fromString(userEntity.getId()))
+              .id(userEntity.getId())
               .uniqueCode(userEntity.getUniqueCode())
               .rawPassword(textEncryptor.decrypt(userEntity.getPasswordHash()))
               .build());
@@ -93,7 +93,7 @@ public class UserService {
     if (entity == null) return null;
 
     return User.builder()
-        .id(UUID.fromString(entity.getId()))
+        .id(entity.getId())
         .email(entity.getEmail())
         .uniqueCode(entity.getUniqueCode())
         .rawPassword(textEncryptor.decrypt(entity.getPasswordHash()))

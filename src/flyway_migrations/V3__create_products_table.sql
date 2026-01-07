@@ -1,6 +1,0 @@
-CREATE TABLE products (
-    id VARCHAR(255) PRIMARY KEY NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    category VARCHAR(255),
-    sku VARCHAR(100) UNIQUE
-);

@@ -7,10 +7,10 @@ import java.util.UUID;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class BasketMemberEntity {
-    private UUID id;
-    private UUID basketId;
-    private UUID userId;
-    private String role;
-    private OffsetDateTime createdAt;
+  private String basketId;
+  private String userId;
+  private String role;
 }

@@ -12,7 +12,7 @@ public interface UserMapper {
   List<UserEntity> getAll();
 
   @Select("SELECT * FROM app_user WHERE id = #{id}")
-  UserEntity getById(UUID id);
+  UserEntity getById(String id);
 
   @Select("SELECT * FROM app_user WHERE email = #{email}")
   UserEntity getByEmail(String id);

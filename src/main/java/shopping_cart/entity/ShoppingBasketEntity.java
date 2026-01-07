@@ -8,11 +8,15 @@ import java.util.List;
 import java.util.UUID;
 
 @Data
+@NoArgsConstructor
 @Builder
+@AllArgsConstructor
 public class ShoppingBasketEntity {
   private String id;
   private String userId;
   private String name;
   private Boolean isShared;
+  private String ownerId;
+  private String shareCode;
   private LocalDateTime createdAt;
 }
