@@ -8,7 +8,7 @@ CREATE TABLE shopping_history (
     closed_at TIMESTAMP DEFAULT NOW()
 );
 CREATE TABLE shopping_history_items (
-    id VARCHAR(255) PRIMARY KEY.
+    id VARCHAR(255) PRIMARY KEY,
     history_id VARCHAR(255) REFERENCES shopping_history(id) ON DELETE CASCADE,
     product_name VARCHAR(255),
     quantity INT,

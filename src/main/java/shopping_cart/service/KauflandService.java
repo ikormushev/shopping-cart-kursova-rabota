@@ -13,9 +13,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import shopping_cart.Dto.KauflandDto;
-import shopping_cart.entity.PriceEntity;
 import shopping_cart.entity.ProductEntity;
-import shopping_cart.mapper.PriceMapper;
 import shopping_cart.mapper.ProductMapper;
 import shopping_cart.mapper.StoreMapper;
 
@@ -38,7 +36,6 @@ public class KauflandService {
 
   private final ChromeDriver driver;
   private final ProductMapper productMapper;
-  private final PriceMapper priceMapper;
   private final StoreMapper storeMapper;
   private static final UUID KAUFLAND_STORE_ID =
       UUID.fromString("00000000-0000-0000-0000-000000000002");
@@ -50,13 +47,9 @@ public class KauflandService {
   private String brochurePageUrl;
 
   public KauflandService(
-      ChromeDriver driver,
-      ProductMapper productMapper,
-      PriceMapper priceMapper,
-      StoreMapper storeMapper) {
+      ChromeDriver driver, ProductMapper productMapper, StoreMapper storeMapper) {
     this.driver = driver;
     this.productMapper = productMapper;
-    this.priceMapper = priceMapper;
     this.storeMapper = storeMapper;
   }
 
@@ -143,51 +136,51 @@ public class KauflandService {
     return KauflandDto.success(pdfFile.getName(), validFrom, validTo, productsSaved, imagesSaved);
   }
 
-  private void parseProductsFromPdf(PDDocument document) throws Exception {
-    PDFTextStripper stripper = new PDFTextStripper();
-    stripper.setSortByPosition(true);
-    String text = stripper.getText(document);
-    String[] lines = text.split("\n");
+    private int parseProductsFromPdf(PDDocument document) throws Exception {
+        PDFTextStripper stripper = new PDFTextStripper();
+        stripper.setSortByPosition(true);
+        String text = stripper.getText(document);
+        String[] lines = text.split("\n");
+        int count = 0;
 
-    for (int i = 0; i < lines.length; i++) {
-      String line = lines[i].trim();
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
 
-      // 1. ТЪРСИМ ЦЕНА (XX,XX ЛВ) - Това е нашият "котва"
-      if (line.matches(".*?(\\d+[,.]\\d{2})\\s*(ЛВ|лв|BGN).*")) {
-        var price = extractPrice(line);
+            // Find the Price Anchor
+            if (line.matches(".*?(\\d+[,.]\\d{2})\\s*(ЛВ|лв|BGN).*")) {
+                BigDecimal price = extractPrice(line);
+                Deque<String> nameParts = new LinkedList<>();
 
-        // 2. ИГНОРИРАМЕ грешни цени (като датата 15.12)
-        if (line.contains("15.12") || line.contains("21.12")) continue;
+                // Look back up to 3 lines to capture Brand + Type
+                for (int j = 1; j <= 3 && (i - j) >= 0; j++) {
+                    String prev = lines[i - j].trim();
 
-        Deque<String> nameParts = new LinkedList<>();
+                    // SKIP: Lines that are just weights/volumes (e.g., 400 г, 1 л)
+                    if (prev.matches(".*\\d+\\s*(г|кг|мл|л|бр|g|kg|ml|l).*")) continue;
 
-        // Връщаме се МАКСИМУМ 2 реда назад
-        for (int j = 1; j <= 2 && (i - j) >= 0; j++) {
-          String prev = lines[i - j].trim();
+                    // CLEAN: Use our helper method
+                    String refined = cleanLine(prev);
 
-          // СПИРАЧКИ (Simple & Direct):
-          if (prev.isEmpty() || prev.matches(".*\\d.*") || prev.contains("=")) break;
+                    // STOP: If we hit another price line or a line that became empty after cleaning
+                    if (prev.matches(".*\\d+[,.]\\d{2}.*") || refined.length() < 2) {
+                        if (prev.matches(".*\\d+[,.]\\d{2}.*")) break;
+                        continue;
+                    }
 
-          // Игнорираме очевиден шум (инструкции за цветя)
-          if (prev.toUpperCase().matches(".*(СЛЪНЦЕ|СВЕТЛИНА|ПОЛИВАНЕ|СЯНКА|ОБИЛНО|УМЕРЕНО).*"))
-            continue;
+                    nameParts.addFirst(refined);
+                }
 
-          nameParts.addFirst(prev);
+                // JOIN: Connect the parts with a dash for the "Type - Brand" format
+                String fullName = String.join(" - ", nameParts).trim();
+
+                if (fullName.length() > 3 && price.compareTo(BigDecimal.ZERO) > 0) {
+                    saveProductAndPrice(fullName, price);
+                    count++;
+                }
+            }
         }
-
-        String fullName = String.join(" ", nameParts).trim();
-
-        if (fullName.contains("  ")) {
-          String[] parts = fullName.split("\\s{2,}");
-          fullName = parts[parts.length - 1];
-        }
-
-        if (fullName.length() > 2) {
-          saveProductAndPrice(fullName, price);
-        }
-      }
+        return count;
     }
-  }
 
   // Максимално опростен метод за чистене
   private String cleanProductName(String rawName) {
@@ -217,6 +210,31 @@ public class KauflandService {
     }
     return BigDecimal.ZERO;
   }
+
+    private String cleanLine(String rawLine) {
+        if (rawLine == null || rawLine.isBlank()) return "";
+
+        String cleaned = rawLine;
+
+        // 1. Remove Quality Certs & Certificates
+        cleaned = cleaned.replaceAll("(?i)(ПРОВЕРЕНО КАЧЕСТВО|ОТ TUV AUSTRIA|TUV AUSTRIA|QUALITY|CERTIFIED)", "");
+
+        // 2. Remove internal brochure codes (S25-BG-KW02...)
+        cleaned = cleaned.replaceAll("[A-Z0-9]+-[A-Z0-9-]+", "");
+
+        // 3. Remove "Shouting" Promotional Keywords
+        cleaned = cleaned.replaceAll("(?i)(ТОП ЦЕНА|СУПЕР ЦЕНА|МЕГА ОФЕРТА|АКЦИЯ|НОВА ЦЕНА|ПРОМОЦИЯ|ИЗГОДНО)", "");
+
+        // 4. Remove Technical Metadata (60% fat, types) and Euro prices
+        cleaned = cleaned.replaceAll("(?i)(\\d+%|тип\\s*\\d+).*", "");
+        cleaned = cleaned.replaceAll("(?i)\\d+[,.]\\d{2}\\s*(€|EUR|евро)", "");
+
+        // 5. Remove generic product-adjacent words
+        cleaned = cleaned.replaceAll("(?i)(различни видове|на избрани|виж на|страница|от нашата пекарна)", "");
+
+        // 6. Cleanup: Remove leading/trailing symbols and fix double spaces
+        return cleaned.replaceAll("\\s{2,}", " ").replaceAll("^[- ]+|[- ]+$", "").trim();
+    }
 
   private void extractProductImagesFromPdf(PDDocument document) throws Exception {
     PDFRenderer renderer = new PDFRenderer(document);

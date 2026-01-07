@@ -4,5 +4,6 @@ CREATE TABLE app_user (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     location VARCHAR(255),
+    unique_code VARCHAR(255),
     created_at TIMESTAMP DEFAULT NOW()
 );

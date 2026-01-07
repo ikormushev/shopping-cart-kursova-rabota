@@ -19,7 +19,7 @@ import shopping_cart.model.user.response.UpdatePasswordResponse;
 public class UserController {
   private final UserFacade userFacade;
 
-  @PutMapping
+  @PutMapping("/register")
   public ResponseEntity<RegisterUserAttemptResponse> registerUser(
       @Valid @RequestBody CreateUserRequest createUserRequest) {
     return ResponseEntity.ok(userFacade.register(createUserRequest));

@@ -11,6 +11,6 @@ public class UserEntity {
   private String email;
   private String passwordHash;
   private String location;
-  private LocalDateTime createdAt;
   private String uniqueCode;
+  private LocalDateTime createdAt;
 }

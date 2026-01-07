@@ -31,6 +31,7 @@ public class UserService {
       uniqueCode = securityService.generateSecureToken();
       var userEntity =
           UserEntity.builder()
+              .id(UUID.randomUUID().toString())
               .email(user.getEmail())
               .username(user.getUsername())
               .passwordHash(textEncryptor.encrypt(user.getPassword()))

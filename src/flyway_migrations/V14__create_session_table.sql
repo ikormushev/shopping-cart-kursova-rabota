@@ -3,5 +3,5 @@ CREATE TABLE session (
     status VARCHAR(255),
     cart_id VARCHAR(255),
     created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
 );

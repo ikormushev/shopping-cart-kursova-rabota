@@ -1,5 +1,5 @@
 CREATE TABLE shopping_baskets (
-    id UUID PRIMARY KEY,
+    id VARCHAR(255) PRIMARY KEY,
     owner_id VARCHAR(255) REFERENCES app_user(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
 
