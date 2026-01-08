@@ -11,8 +11,8 @@ public interface SessionMapper {
 
   @Insert(
       """
-        INSERT INTO session (session_id, status, cart_id, created_at, updated_at)
-        VALUES (#{sessionId}, #{status}, #{cartId}, #{createdAt}, #{updatedAt})
+        INSERT INTO session (session_id, status, cart_id, user_id, created_at, updated_at)
+        VALUES (#{sessionId}, #{status}, #{cartId}, #{userId}, #{createdAt}, #{updatedAt})
     """)
   void insert(SessionEntity session);
 

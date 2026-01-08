@@ -13,6 +13,7 @@ public class SessionEntity {
   private String sessionId;
   private String status;
   private String cartId;
+  private String userId;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 }

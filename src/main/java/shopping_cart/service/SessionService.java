@@ -19,6 +19,7 @@ public class SessionService {
             session.getSessionId().toString(),
             session.getStatus(),
             session.getCartId() == null ? null : session.getCartId().toString(),
+            session.getUserId(),
             LocalDateTime.now(),
             LocalDateTime.now());
     sessionMapper.insert(sessionEntity);
