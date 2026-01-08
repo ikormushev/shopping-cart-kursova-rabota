@@ -7,65 +7,87 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import shopping_cart.model.domain.User;
 import shopping_cart.model.session.Session;
+import shopping_cart.model.user.request.ChangePasswordRequest;
+import shopping_cart.model.user.request.ChangeUsernameRequest;
 import shopping_cart.model.user.request.CreateUserRequest;
 import shopping_cart.model.user.request.LoginRequest;
 import shopping_cart.model.user.response.LoginUserResponse;
 import shopping_cart.model.user.response.RegisterUserAttemptResponse;
 import shopping_cart.model.user.response.UpdatePasswordResponse;
 import shopping_cart.repository.cache.SessionCacheRepository;
+import shopping_cart.service.SessionService;
 import shopping_cart.service.UserService;
 
 @Component
 @RequiredArgsConstructor
 public class UserFacade {
-    private final UserService userService;
-    private final SessionCacheRepository sessionCache;
+  private final UserService userService;
+  private final SessionCacheRepository sessionCache;
+  private final SessionService sessionService;
 
-    public RegisterUserAttemptResponse register(CreateUserRequest request) {
-        RegisterUserAttemptResponse response = userService.saveUser(request);
-        return response;
+  public RegisterUserAttemptResponse register(CreateUserRequest request) {
+    RegisterUserAttemptResponse response = userService.saveUser(request);
+    return response;
+  }
+
+  public LoginUserResponse login(LoginRequest loginRequest) {
+    User user = userService.getByEmail(loginRequest.getEmail());
+
+    if (user == null || !user.getRawPassword().equals(loginRequest.getPassword())) {
+      return LoginUserResponse.builder()
+          .errorCode(5001)
+          .message("Invalid email or password")
+          .build();
     }
 
-    public LoginUserResponse login(LoginRequest loginRequest) {
-        User user = userService.getByEmail(loginRequest.getEmail());
+    Optional<UUID> existingSessionId =
+        sessionCache.getAllSessions().entrySet().stream()
+            .filter(entry -> entry.getValue().getUserId().equals(user.getId().toString()))
+            .map(Map.Entry::getKey)
+            .findFirst();
 
-        if (user == null || !user.getRawPassword().equals(loginRequest.getPassword())) {
-            return LoginUserResponse.builder()
-                    .errorCode(5001)
-                    .message("Invalid email or password")
-                    .build();
-        }
-        
-        Optional<UUID> existingSessionId = sessionCache.getAllSessions().entrySet().stream()
-                .filter(entry -> entry.getValue().getUserId().equals(user.getId().toString()))
-                .map(Map.Entry::getKey)
-                .findFirst();
-
-        if (existingSessionId.isPresent()) {
-            sessionCache.updateSessionKeepAlive(existingSessionId.get());
-            return LoginUserResponse.builder()
-                    .errorCode(5002)
-                    .message("User already has an active session")
-                    .sessionId(existingSessionId.get().toString())
-                    .build();
-        }
-
-        UUID newSessionId = UUID.randomUUID();
-        Session newSession = Session.builder()
-                .sessionId(newSessionId)
-                .userId(user.getId().toString())
-                .build();
-
-        sessionCache.put(newSessionId, newSession);
-
-        return LoginUserResponse.builder()
-                .errorCode(1000)
-                .message("OK")
-                .sessionId(newSessionId.toString())
-                .build();
+    if (existingSessionId.isPresent()) {
+      sessionCache.updateSessionKeepAlive(existingSessionId.get());
+      return LoginUserResponse.builder()
+          .errorCode(5002)
+          .message("User already has an active session")
+          .sessionId(existingSessionId.get().toString())
+          .build();
     }
 
-    public UpdatePasswordResponse updatePassword(String token, String newPassword, String confirmPassword) {
-        return userService.updatePassword(token, newPassword, confirmPassword);
-    }
+    UUID newSessionId = UUID.randomUUID();
+    Session newSession = Session.builder().sessionId(newSessionId).userId(user.getId()).build();
+
+    sessionService.createSession(newSession);
+    sessionCache.put(newSessionId, newSession);
+
+    return LoginUserResponse.builder()
+        .errorCode(1000)
+        .message("OK")
+        .sessionId(newSessionId.toString())
+        .build();
+  }
+
+  public UpdatePasswordResponse updatePassword(
+      String token, String newPassword, String confirmPassword) {
+    return userService.updatePassword(token, newPassword, confirmPassword);
+  }
+
+  public UpdatePasswordResponse changePassword(String sessionId, ChangePasswordRequest request) {
+    var session = sessionCache.get(UUID.fromString(sessionId));
+    if (session == null) throw new RuntimeException("Invalid Session");
+
+    return userService.changePassword(
+        session.getUserId(),
+        request.getOldPassword(),
+        request.getNewPassword(),
+        request.getConfirmPassword());
+  }
+
+  public UpdatePasswordResponse changeUsername(String sessionId, ChangeUsernameRequest request) {
+    var session = sessionCache.get(UUID.fromString(sessionId));
+    if (session == null) throw new RuntimeException("Invalid Session");
+
+    return userService.changeUsername(session.getUserId(), request);
+  }
 }

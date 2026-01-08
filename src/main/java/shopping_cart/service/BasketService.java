@@ -62,7 +62,13 @@ public class BasketService {
   }
 
   public List<ShoppingBasketEntity> findAllForUser(String userId) {
-    return basketMapper.findAllCartByUserId(userId);
+    return basketMapper.findAllByUserId(userId);
+  }
+
+  public void addProductsToBasketBatch(List<BasketItemEntity> items) {
+    if (items != null && !items.isEmpty()) {
+      basketMapper.addItemsBatch(items);
+    }
   }
 
   public String getUserRole(String basketId, String userId) {

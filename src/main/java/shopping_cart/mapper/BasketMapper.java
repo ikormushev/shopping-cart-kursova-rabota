@@ -170,6 +170,18 @@ public interface BasketMapper {
   @Select("SELECT id FROM shopping_baskets WHERE share_code = #{shareCode}")
   String findBasketIdByShareCode(@Param("shareCode") String shareCode);
 
+  @Insert(
+"""
+    <script>
+    INSERT INTO basket_items (id, basket_id, product_id, quantity, added_by, added_at)
+    VALUES
+    <foreach collection="items" item="item" separator=",">
+        (#{item.id}, #{item.basketId}, #{item.productId}, #{item.quantity}, #{item.addedBy}, #{item.addedAt})
+    </foreach>
+    </script>
+""")
+  void addItemsBatch(@Param("items") List<BasketItemEntity> items);
+
   @Select(
 """
     SELECT p.id as productId, p.price, s.name as storeName

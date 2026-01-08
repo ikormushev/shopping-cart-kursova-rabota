@@ -24,24 +24,27 @@ public interface SessionMapper {
     """)
   void updateStatus(@Param("sessionId") String sessionId, @Param("status") String status);
 
+  @Delete("DELETE FROM session WHERE session_id = #{sessionId}")
+  void delete(String sessionId);
+
   @Update(
       """
-              UPDATE session
-              SET status = #{status}, updated_at = NOW(), cart_id = #{cartId}, basket_id = #{basketId}
-              WHERE session_id = #{sessionId}
-          """)
+      UPDATE session
+      SET status = #{status},
+          updated_at = NOW(),
+          cart_id = #{cartId}
+      WHERE session_id = #{sessionId}
+  """)
   void updateSession(
       @Param("sessionId") String sessionId,
       @Param("cartId") String cartId,
       @Param("status") String status);
 
-  @Delete("DELETE FROM session WHERE session_id = #{sessionId}")
-  void delete(String sessionId);
-
-    @Select("""
-        SELECT basket_id FROM sessions 
-        WHERE user_id = #{userId} AND status = 'ACTIVE' 
+  @Select(
+      """
+        SELECT cart_id FROM session
+        WHERE user_id = #{userId} AND status = 'ACTIVE'
         ORDER BY updated_at DESC LIMIT 1
     """)
-    String findLastActiveCartId(String userId);
+  String findLastActiveCartId(@Param("userId") String userId);
 }

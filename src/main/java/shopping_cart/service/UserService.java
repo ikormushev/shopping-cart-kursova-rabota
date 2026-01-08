@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import shopping_cart.entity.UserEntity;
 import shopping_cart.mapper.UserMapper;
 import shopping_cart.model.domain.User;
+import shopping_cart.model.user.request.ChangeUsernameRequest;
 import shopping_cart.model.user.request.CreateUserRequest;
 import shopping_cart.model.user.response.RegisterUserAttemptResponse;
 import shopping_cart.model.user.response.UpdatePasswordResponse;
@@ -115,6 +116,54 @@ public class UserService {
     return UpdatePasswordResponse.builder()
         .message("Password Updated successfully")
         .errorCode(1000)
+        .build();
+  }
+
+  public UpdatePasswordResponse changePassword(
+      String userId, String oldPassword, String newPassword, String confirmPassword) {
+    User user = findById(userId);
+
+    if (!user.getRawPassword().equals(oldPassword)) {
+      return UpdatePasswordResponse.builder()
+          .errorCode(5003)
+          .message("Old password is incorrect")
+          .build();
+    }
+
+    if (!newPassword.equals(confirmPassword)) {
+      return UpdatePasswordResponse.builder()
+          .errorCode(5004)
+          .message("New passwords do not match")
+          .build();
+    }
+
+    userMapper.updatePasswordById(userId, textEncryptor.encrypt(newPassword));
+
+    return UpdatePasswordResponse.builder()
+        .errorCode(1000)
+        .message("Password changed successfully")
+        .build();
+  }
+
+  public UpdatePasswordResponse changeUsername(String userId, ChangeUsernameRequest request) {
+    User user = findById(userId);
+
+    if (!user.getEmail().equalsIgnoreCase(request.getEmail())) {
+      return UpdatePasswordResponse.builder()
+          .errorCode(5005)
+          .message("Email does not match our records")
+          .build();
+    }
+
+    if (!user.getRawPassword().equals(request.getCurrentPassword())) {
+      return UpdatePasswordResponse.builder().errorCode(5006).message("Incorrect password").build();
+    }
+
+    userMapper.updateUsername(userId, request.getNewUsername());
+
+    return UpdatePasswordResponse.builder()
+        .errorCode(1000)
+        .message("Username changed successfully to: " + request.getNewUsername())
         .build();
   }
 }

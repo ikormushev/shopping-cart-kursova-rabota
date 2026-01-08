@@ -44,6 +44,10 @@ public class SessionManager {
     sessionMapper.updateSession(sessionId.toString(), session.getCartId().toString(), "ACTIVE");
   }
 
+  public void removeCartIdAfterCheckout(String sessionId) {
+    sessionCache.evictShoppingCartFromSession(sessionId);
+  }
+
   @Transactional
   public void switchActiveCart(String sessionId, String basketId) {
     UUID sessionUuid = UUID.fromString(sessionId);

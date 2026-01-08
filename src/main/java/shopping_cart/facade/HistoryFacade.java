@@ -46,9 +46,8 @@ public class HistoryFacade {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
     historyService.archiveBasket(session.getUserId(), basketId, totalSpent);
-
-    session.setCartId(null);
     sessionManager.update(UUID.fromString(sessionId), session);
+    sessionManager.removeCartIdAfterCheckout(sessionId);
   }
 
   public List<HistoryEntity> getHistory(String sessionId) {

@@ -14,17 +14,20 @@ public interface UserMapper {
   @Select("SELECT * FROM app_user WHERE id = #{id}")
   UserEntity getById(String id);
 
-    @Results(id = "userMap", value = {
-            @Result(property = "id", column = "id"),
-            @Result(property = "username", column = "username"),
-            @Result(property = "email", column = "email"),
-            @Result(property = "passwordHash", column = "password_hash"),
-            @Result(property = "location", column = "location"),
-            @Result(property = "uniqueCode", column = "unique_code"),
-            @Result(property = "createdAt", column = "created_at")
-    })
-    @Select("SELECT id, username, email, password_hash, location, unique_code, created_at FROM app_user WHERE email = #{email}")
-    UserEntity getByEmail(String email);
+  @Results(
+      id = "userMap",
+      value = {
+        @Result(property = "id", column = "id"),
+        @Result(property = "username", column = "username"),
+        @Result(property = "email", column = "email"),
+        @Result(property = "passwordHash", column = "password_hash"),
+        @Result(property = "location", column = "location"),
+        @Result(property = "uniqueCode", column = "unique_code"),
+        @Result(property = "createdAt", column = "created_at")
+      })
+  @Select(
+      "SELECT id, username, email, password_hash, location, unique_code, created_at FROM app_user WHERE email = #{email}")
+  UserEntity getByEmail(String email);
 
   @Insert(
 """
@@ -41,4 +44,10 @@ public interface UserMapper {
     """)
   void updatePasswordByToken(
       @Param("token") String token, @Param("newPassword") String newPassword);
+
+  @Update("UPDATE app_user SET password_hash = #{newPassword} WHERE id = #{userId}")
+  void updatePasswordById(@Param("userId") String userId, @Param("newPassword") String newPassword);
+
+  @Update("UPDATE app_user SET username = #{newUsername} WHERE id = #{userId}")
+  void updateUsername(@Param("userId") String userId, @Param("newUsername") String newUsername);
 }

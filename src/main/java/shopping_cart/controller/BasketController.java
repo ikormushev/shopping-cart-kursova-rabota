@@ -8,6 +8,7 @@ import shopping_cart.entity.ShoppingBasketEntity;
 import shopping_cart.facade.UnifiedBasketFacade;
 import shopping_cart.model.domain.ShoppingBasketDto;
 import shopping_cart.model.response.BasketSelectionResponse;
+import shopping_cart.model.user.request.AddItemRequest;
 
 import java.util.List;
 
@@ -27,10 +28,9 @@ public class BasketController {
   @PostMapping("/add")
   public ResponseEntity<ShoppingBasketDto> addItem(
       @RequestHeader("Session-Id") String sessionId,
-      @RequestParam String productId,
-      @RequestParam String cartId,
-      @RequestParam int quantity) {
-    return ResponseEntity.ok(basketFacade.addItem(sessionId, productId, cartId, quantity));
+      @RequestBody List<AddItemRequest> itemRequests,
+      @RequestParam String cartId) {
+    return ResponseEntity.ok(basketFacade.addItemsBatch(sessionId, cartId, itemRequests));
   }
 
   @GetMapping("/current")

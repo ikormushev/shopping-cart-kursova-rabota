@@ -18,7 +18,7 @@ public class SessionService {
         new SessionEntity(
             session.getSessionId().toString(),
             session.getStatus(),
-            session.getCartId().toString(),
+            session.getCartId() == null ? null : session.getCartId().toString(),
             LocalDateTime.now(),
             LocalDateTime.now());
     sessionMapper.insert(sessionEntity);
@@ -32,9 +32,9 @@ public class SessionService {
     sessionMapper.updateStatus(sessionId, "EXPIRED");
   }
 
-    public void syncSessionToDb(Session session) {
-        sessionMapper.updateStatus(session.getSessionId().toString(), session.getStatus());
-    }
+  public void syncSessionToDb(Session session) {
+    sessionMapper.updateStatus(session.getSessionId().toString(), session.getStatus());
+  }
 
   public void removeSession(String sessionId) {
     sessionMapper.delete(sessionId);

@@ -9,6 +9,7 @@ import shopping_cart.model.domain.BasketItem;
 import shopping_cart.model.domain.ShoppingBasketDto;
 import shopping_cart.model.response.BasketSelectionResponse;
 import shopping_cart.model.session.Session;
+import shopping_cart.model.user.request.AddItemRequest;
 import shopping_cart.repository.cache.SessionCacheRepository;
 import shopping_cart.service.BasketService;
 
@@ -238,5 +239,37 @@ public class UnifiedBasketFacade {
     return items.stream()
         .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
         .reduce(BigDecimal.ZERO, BigDecimal::add);
+  }
+
+  @Transactional
+  public ShoppingBasketDto addItemsBatch(
+      String sessionId, String cartId, List<AddItemRequest> productRequests) {
+    var session = getSession(sessionId);
+    String userId = session.getUserId();
+
+    if (!session.getCartId().toString().equalsIgnoreCase(cartId)) {
+      session.setCartId(UUID.fromString(cartId));
+      sessionCache.update(UUID.fromString(sessionId), session);
+    }
+
+    validateMembership(cartId, userId);
+    LocalDateTime now = LocalDateTime.now();
+
+    List<BasketItemEntity> entities =
+        productRequests.stream()
+            .map(
+                req ->
+                    BasketItemEntity.builder()
+                        .id(UUID.randomUUID().toString())
+                        .basketId(cartId)
+                        .productId(req.getProductId())
+                        .quantity(req.getQuantity())
+                        .addedBy(userId)
+                        .addedAt(now)
+                        .build())
+            .toList();
+
+    basketService.addProductsToBasketBatch(entities);
+    return getEnrichedBasketResponse(cartId);
   }
 }

@@ -38,6 +38,12 @@ public class SessionCacheRepository {
     }
   }
 
+  public void evictShoppingCartFromSession(String sessionId) {
+    var session = sessions.get(UUID.fromString(sessionId));
+    session.setCartId(null);
+    sessions.put(UUID.fromString(sessionId), session);
+  }
+
   public void evictSession(UUID sessionId) {
     sessions.remove(sessionId);
     sessionKeepAlive.remove(sessionId);

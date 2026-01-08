@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import shopping_cart.facade.UserFacade;
+import shopping_cart.model.user.request.ChangePasswordRequest;
 import shopping_cart.model.user.request.CreateUserRequest;
 import shopping_cart.model.user.request.LoginRequest;
 import shopping_cart.model.user.request.UpdatePasswordRequest;
@@ -39,5 +40,12 @@ public class UserController {
             updatePasswordRequest.getToken(),
             updatePasswordRequest.getNewPassword(),
             updatePasswordRequest.getConfirmPassword()));
+  }
+
+  @PostMapping("/change-password")
+  public ResponseEntity<UpdatePasswordResponse> changePassword(
+      @RequestHeader("Session-Id") String sessionId, @RequestBody ChangePasswordRequest request) {
+
+    return ResponseEntity.ok(userFacade.changePassword(sessionId, request));
   }
 }
