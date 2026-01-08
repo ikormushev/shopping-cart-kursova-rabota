@@ -60,9 +60,10 @@ public class UserService {
       throw new RuntimeException("No such user");
     }
     return User.builder()
+        .id(userEntity.getId())
+        .username(userEntity.getUsername())
         .email(userEntity.getEmail())
         .uniqueCode(userEntity.getUniqueCode())
-        .id(userEntity.getId())
         .rawPassword(textEncryptor.decrypt(userEntity.getPasswordHash()))
         .build();
   }
@@ -97,6 +98,7 @@ public class UserService {
 
     return User.builder()
         .id(entity.getId())
+        .username(entity.getUsername())
         .email(entity.getEmail())
         .uniqueCode(entity.getUniqueCode())
         .rawPassword(textEncryptor.decrypt(entity.getPasswordHash()))
@@ -122,7 +124,14 @@ public class UserService {
 
   public UpdatePasswordResponse changePassword(
       String email, String oldPassword, String newPassword, String confirmPassword) {
-    User user = findById(email);
+    User user = getByEmail(email);
+
+    if (user == null) {
+      return UpdatePasswordResponse.builder()
+          .errorCode(5002)
+          .message("User not found")
+          .build();
+    }
 
     if (!user.getRawPassword().equals(oldPassword)) {
       return UpdatePasswordResponse.builder()
@@ -138,7 +147,7 @@ public class UserService {
           .build();
     }
 
-    userMapper.updatePasswordById(email, textEncryptor.encrypt(newPassword));
+    userMapper.updatePasswordByEmail(email, textEncryptor.encrypt(newPassword));
 
     return UpdatePasswordResponse.builder()
         .errorCode(1000)
@@ -146,8 +155,15 @@ public class UserService {
         .build();
   }
 
-  public ChangeUsernameResponse changeUsername(String userId, ChangeUsernameRequest request) {
-    User user = findById(userId);
+  public ChangeUsernameResponse changeUsername(String email, ChangeUsernameRequest request) {
+    User user = getByEmail(email);
+
+    if (user == null) {
+      return ChangeUsernameResponse.builder()
+          .errorCode(5002)
+          .message("User not found")
+          .build();
+    }
 
     if (!user.getEmail().equalsIgnoreCase(request.getEmail())) {
       return ChangeUsernameResponse.builder()
@@ -160,7 +176,7 @@ public class UserService {
       return ChangeUsernameResponse.builder().errorCode(5006).message("Incorrect password").build();
     }
 
-    userMapper.updateUsername(userId, request.getNewUsername());
+    userMapper.updateUsernameByEmail(email, request.getNewUsername());
 
     return ChangeUsernameResponse.builder()
         .errorCode(1000)

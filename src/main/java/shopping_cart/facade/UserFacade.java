@@ -15,6 +15,7 @@ import shopping_cart.model.user.response.ChangeUsernameResponse;
 import shopping_cart.model.user.response.LoginUserResponse;
 import shopping_cart.model.user.response.RegisterUserAttemptResponse;
 import shopping_cart.model.user.response.UpdatePasswordResponse;
+import shopping_cart.model.user.response.UserResponseDto;
 import shopping_cart.repository.cache.SessionCacheRepository;
 import shopping_cart.service.SessionService;
 import shopping_cart.service.UserService;
@@ -83,7 +84,22 @@ public class UserFacade {
   }
 
   public ChangeUsernameResponse changeUsername(ChangeUsernameRequest request) {
-
     return userService.changeUsername(request.getEmail(), request);
+  }
+
+  public UserResponseDto getCurrentUser(String sessionId) {
+    Session session = sessionCache.get(UUID.fromString(sessionId));
+    if (session == null) {
+      throw new RuntimeException("Invalid session");
+    }
+
+    User user = userService.findById(session.getUserId());
+    return new UserResponseDto(
+        user.getId(),
+        user.getUsername(),
+        user.getEmail(),
+        null,
+        null
+    );
   }
 }

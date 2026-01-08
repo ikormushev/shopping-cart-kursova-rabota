@@ -46,8 +46,8 @@ public interface UserMapper {
       @Param("token") String token, @Param("newPassword") String newPassword);
 
   @Update("UPDATE app_user SET password_hash = #{newPassword} WHERE email = #{email}")
-  void updatePasswordById(@Param("userId") String userId, @Param("newPassword") String newPassword);
+  void updatePasswordByEmail(@Param("email") String email, @Param("newPassword") String newPassword);
 
   @Update("UPDATE app_user SET username = #{newUsername} WHERE email = #{email}")
-  void updateUsername(@Param("userId") String userId, @Param("newUsername") String newUsername);
+  void updateUsernameByEmail(@Param("email") String email, @Param("newUsername") String newUsername);
 }

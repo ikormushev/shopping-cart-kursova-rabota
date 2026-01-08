@@ -11,12 +11,18 @@ import shopping_cart.model.user.response.ChangeUsernameResponse;
 import shopping_cart.model.user.response.LoginUserResponse;
 import shopping_cart.model.user.response.RegisterUserAttemptResponse;
 import shopping_cart.model.user.response.UpdatePasswordResponse;
+import shopping_cart.model.user.response.UserResponseDto;
 
 @RestController
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
 public class UserController {
   private final UserFacade userFacade;
+
+  @GetMapping("/me")
+  public ResponseEntity<UserResponseDto> getCurrentUser(@RequestHeader("Session-Id") String sessionId) {
+    return ResponseEntity.ok(userFacade.getCurrentUser(sessionId));
+  }
 
   @PutMapping("/register")
   public ResponseEntity<RegisterUserAttemptResponse> registerUser(
