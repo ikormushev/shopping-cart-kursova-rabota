@@ -1,8 +1,8 @@
 CREATE TABLE basket_items (
-    id UUID PRIMARY KEY,
-    basket_id UUID REFERENCES shopping_basket(id) ON DELETE CASCADE,
-    product_id UUID REFERENCES product(id) ON DELETE CASCADE,
-    quantity INT NOT NULL DEFAULT 1,
-    added_by UUID REFERENCES app_user(id),
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+    id VARCHAR(255) PRIMARY KEY,
+    basket_id VARCHAR(255) REFERENCES shopping_baskets(id) ON DELETE CASCADE,
+    product_id VARCHAR(255) REFERENCES products(id),
+    quantity INT DEFAULT 1,
+    added_by VARCHAR(255) REFERENCES app_user(id),
+    added_at TIMESTAMP DEFAULT NOW()
 );

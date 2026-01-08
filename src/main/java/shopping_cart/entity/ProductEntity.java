@@ -1,6 +1,8 @@
 package shopping_cart.entity;
 
 import lombok.*;
+
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -10,11 +12,13 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class ProductEntity {
-    private UUID id;
-    private String name;
-    private String category;
-    private String description;
-    private String sku;
-    private OffsetDateTime createdAt;
-    private String imageUrl;
+  private String id;
+  private String groupId;
+  private String storeId;
+  private String rawName;
+  private String sku;
+  private BigDecimal price;
+  private String currency;
+  private String storeName;
+  private OffsetDateTime createdAt;
 }

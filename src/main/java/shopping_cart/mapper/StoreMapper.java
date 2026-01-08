@@ -8,15 +8,17 @@ import java.util.UUID;
 
 @Mapper
 public interface StoreMapper {
-    @Select("SELECT * FROM store")
-    List<StoreEntity> getAll();
+    @Select("SELECT * FROM stores")
+    List<StoreEntity> findAll();
 
-    @Insert("""
-        INSERT INTO store (id, retailer_id, address, latitude, longitude, created_at)
-        VALUES (#{id, typeHandler=shopping_cart.config.UUIDTypeHandler}, 
-        #{retailerId, typeHandler=shopping_cart.config.UUIDTypeHandler}, 
-        #{address}, #{latitude}, #{longitude}, #{createdAt})
-    """)
+    @Select("SELECT * FROM stores WHERE id = #{id}")
+    StoreEntity findById(String id);
+
+    @Select("SELECT id FROM stores WHERE name = #{name}")
+    String findByName(String name);
+
+    @Insert("INSERT INTO stores (id, name, website_url) VALUES (#{id}, #{name}, #{websiteUrl})")
     void insert(StoreEntity store);
+
 }
 
