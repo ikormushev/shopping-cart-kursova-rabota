@@ -74,4 +74,22 @@ public class BasketService {
   public String getUserRole(String basketId, String userId) {
     return basketMapper.getUserRole(basketId, userId);
   }
+
+  public void toggleItemChecked(String itemId, boolean checked) {
+    basketMapper.updateCheckedStatus(itemId, checked);
+  }
+
+  public void checkAllItems(String basketId, boolean checked) {
+    basketMapper.updateAllCheckedStatus(basketId, checked);
+  }
+
+  public List<BasketItemEntity> findCheckedItemsByBasketId(String basketId) {
+    return basketMapper.findItemsByBasketId(basketId).stream()
+            .filter(item -> Boolean.TRUE.equals(item.getChecked()))
+            .toList();
+  }
+
+  public void removeCheckedItems(String basketId) {
+    basketMapper.deleteCheckedItems(basketId);
+  }
 }

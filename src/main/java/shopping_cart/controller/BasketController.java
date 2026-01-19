@@ -20,56 +20,80 @@ public class BasketController {
 
   @PostMapping("/create")
   public ResponseEntity<Void> createBasket(
-      @RequestHeader("Session-Id") String sessionId, @RequestParam String name) {
+          @RequestHeader("Session-Id") String sessionId, @RequestParam String name) {
     basketFacade.createCart(sessionId, name);
     return ResponseEntity.ok().build();
   }
 
   @PostMapping("/add")
   public ResponseEntity<ShoppingBasketDto> addItem(
-      @RequestHeader("Session-Id") String sessionId,
-      @RequestBody List<AddItemRequest> itemRequests,
-      @RequestParam String cartId) {
+          @RequestHeader("Session-Id") String sessionId,
+          @RequestBody List<AddItemRequest> itemRequests,
+          @RequestParam String cartId) {
     return ResponseEntity.ok(basketFacade.addItemsBatch(sessionId, cartId, itemRequests));
   }
 
   @GetMapping("/current")
   public ResponseEntity<List<BasketItemEntity>> getCurrent(
-      @RequestHeader("Session-Id") String sessionId) {
+          @RequestHeader("Session-Id") String sessionId) {
     return ResponseEntity.ok(basketFacade.getCurrentOrder(sessionId));
   }
 
   @GetMapping("/get/user/carts")
   public ResponseEntity<List<ShoppingBasketEntity>> getUserCarts(
-      @RequestHeader("Session-Id") String sessionId) {
+          @RequestHeader("Session-Id") String sessionId) {
     return ResponseEntity.ok(basketFacade.getAllCarts(sessionId));
   }
 
   @PostMapping("/select/cart")
   public ResponseEntity<BasketSelectionResponse> selectCarts(
-      @RequestHeader("Session-Id") String sessionId, @RequestParam String basketId) {
+          @RequestHeader("Session-Id") String sessionId, @RequestParam String basketId) {
     return ResponseEntity.ok(basketFacade.selectBasket(sessionId, basketId));
   }
 
   @PatchMapping("/quantity")
   public ResponseEntity<ShoppingBasketDto> updateQuantity(
-      @RequestHeader("Session-Id") String sessionId,
-      @RequestParam String basketItemId,
-      @RequestParam int quantity) {
+          @RequestHeader("Session-Id") String sessionId,
+          @RequestParam String basketItemId,
+          @RequestParam int quantity) {
     return ResponseEntity.ok(basketFacade.updateQuantity(sessionId, basketItemId, quantity));
   }
 
   @DeleteMapping("/item/{productId}")
   public ResponseEntity<ShoppingBasketDto> removeItem(
-      @RequestHeader("Session-Id") String sessionId, @PathVariable String productId) {
+          @RequestHeader("Session-Id") String sessionId, @PathVariable String productId) {
     basketFacade.removeItem(sessionId, productId);
     return ResponseEntity.ok(basketFacade.removeItem(sessionId, productId));
   }
 
   @PostMapping("/join")
   public ResponseEntity<String> join(
-      @RequestHeader("Session-Id") String sessionId, @RequestParam String code) {
+          @RequestHeader("Session-Id") String sessionId, @RequestParam String code) {
     basketFacade.joinCartViaCode(sessionId, code);
     return ResponseEntity.ok("Successfully joined the cart!");
+  }
+
+  @PatchMapping("/item/{itemId}/check")
+  public ResponseEntity<Void> toggleItemChecked(
+          @RequestHeader("Session-Id") String sessionId,
+          @PathVariable String itemId,
+          @RequestParam boolean checked) {
+    basketFacade.toggleItemChecked(sessionId, itemId, checked);
+    return ResponseEntity.ok().build();
+  }
+
+  @PatchMapping("/{basketId}/check-all")
+  public ResponseEntity<Void> checkAllItems(
+          @RequestHeader("Session-Id") String sessionId,
+          @PathVariable String basketId,
+          @RequestParam boolean checked) {
+    basketFacade.checkAllItems(sessionId, basketId, checked);
+    return ResponseEntity.ok().build();
+  }
+
+  @GetMapping("/checked-items")
+  public ResponseEntity<List<BasketItemEntity>> getCheckedItems(
+          @RequestHeader("Session-Id") String sessionId) {
+    return ResponseEntity.ok(basketFacade.getCheckedItems(sessionId));
   }
 }
