@@ -22,4 +22,5 @@ public class BasketItemEntity {
   private String rawName;
   private BigDecimal price;
   private String storeName;
+  private Boolean checked;
 }
