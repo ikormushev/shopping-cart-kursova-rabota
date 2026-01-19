@@ -1,0 +1,1 @@
+ALTER TABLE basket_items ADD COLUMN checked BOOLEAN DEFAULT false NOT NULL;
