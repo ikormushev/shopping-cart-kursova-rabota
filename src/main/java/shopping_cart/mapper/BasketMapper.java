@@ -115,6 +115,7 @@ public interface BasketMapper {
             bi.quantity,
             bi.added_by,
             bi.added_at,
+            bi.checked,
             p.raw_name,
             p.price,
             s.name as store_name
@@ -134,7 +135,8 @@ public interface BasketMapper {
         @Result(property = "addedAt", column = "added_at"),
         @Result(property = "rawName", column = "raw_name"),
         @Result(property = "price", column = "price"),
-        @Result(property = "storeName", column = "store_name")
+        @Result(property = "storeName", column = "store_name"),
+        @Result(property = "checked", column = "checked")
       })
   List<BasketItemEntity> findItemsByBasketId(String basketId);
 
@@ -147,7 +149,8 @@ public interface BasketMapper {
         @Result(property = "productId", column = "product_id"),
         @Result(property = "quantity", column = "quantity"),
         @Result(property = "addedBy", column = "added_by"),
-        @Result(property = "addedAt", column = "added_at")
+        @Result(property = "addedAt", column = "added_at"),
+        @Result(property = "checked", column = "checked")
       })
   BasketItemEntity findItemById(@Param("basketId") String basketId, @Param("id") String id);
 
@@ -193,4 +196,13 @@ public interface BasketMapper {
       @Param("rawName") String rawName,
       @Param("currentPrice") BigDecimal currentPrice,
       @Param("currentProductId") String currentProductId);
+
+  @Update("UPDATE basket_items SET checked = #{checked} WHERE id = #{itemId}")
+  void updateCheckedStatus(@Param("itemId") String itemId, @Param("checked") boolean checked);
+
+  @Update("UPDATE basket_items SET checked = #{checked} WHERE basket_id = #{basketId}")
+  void updateAllCheckedStatus(@Param("basketId") String basketId, @Param("checked") boolean checked);
+
+  @Delete("DELETE FROM basket_items WHERE basket_id = #{basketId} AND checked = true")
+  void deleteCheckedItems(@Param("basketId") String basketId);
 }
