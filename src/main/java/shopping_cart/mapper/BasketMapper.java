@@ -197,7 +197,7 @@ public interface BasketMapper {
       @Param("currentPrice") BigDecimal currentPrice,
       @Param("currentProductId") String currentProductId);
 
-  @Update("UPDATE basket_items SET checked = #{checked} WHERE id = #{itemId}")
+  @Update("UPDATE basket_items SET checked = #{checked} WHERE product_id = #{itemId}")
   void updateCheckedStatus(@Param("itemId") String itemId, @Param("checked") boolean checked);
 
   @Update("UPDATE basket_items SET checked = #{checked} WHERE basket_id = #{basketId}")
