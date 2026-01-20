@@ -48,4 +48,18 @@ public interface ShoppingHistoryMapper {
     @Select("SELECT id, history_id as historyId, product_name as productName, quantity, price_at_purchase as priceAtPurchase " +
             "FROM shopping_history_items WHERE history_id = #{historyId}")
     List<HistoryItemEntity> getItemsByHistoryId(String historyId);
+
+    @Insert("""
+    INSERT INTO shopping_history_items (id, history_id, product_name, quantity, price_at_purchase)
+    SELECT 
+        gen_random_uuid(), 
+        #{historyId}, 
+        p.raw_name, 
+        bi.quantity, 
+        p.price
+    FROM basket_items bi
+    JOIN products p ON bi.product_id = p.id
+    WHERE bi.basket_id = #{basketId} AND bi.checked = true
+  """)
+    void snapshotCheckedItemsToHistory(@Param("historyId") String historyId, @Param("basketId") String basketId);
 }

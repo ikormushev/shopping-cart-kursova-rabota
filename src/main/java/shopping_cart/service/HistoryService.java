@@ -7,7 +7,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import shopping_cart.entity.BasketItemEntity;
 import shopping_cart.entity.HistoryEntity;
+import shopping_cart.entity.ShoppingBasketEntity;
 import shopping_cart.mapper.BasketMapper;
 import shopping_cart.mapper.ShoppingHistoryMapper;
 
@@ -51,4 +53,27 @@ public class HistoryService {
         return allHistory.stream().limit(limit).toList();
     }
 
+  @Transactional
+  public void archiveCheckedItems(String userId, String basketId, List<BasketItemEntity> checkedItems, BigDecimal total) {
+    String historyId = UUID.randomUUID().toString();
+
+    ShoppingBasketEntity basket = basketMapper.findById(basketId);
+    if (basket == null) throw new RuntimeException("Basket not found");
+
+    HistoryEntity history =
+            HistoryEntity.builder()
+                    .id(historyId)
+                    .userId(userId)
+                    .basketId(basketId)
+                    .basketName(basket.getName())
+                    .totalSpent(total.doubleValue())
+                    .currency("BGN")
+                    .closedAt(LocalDateTime.now())
+                    .build();
+
+    shoppingHistoryMapper.insertHistoryHeader(history);
+
+    // Snapshot only checked items
+    shoppingHistoryMapper.snapshotCheckedItemsToHistory(historyId, basketId);
+  }
 }

@@ -23,6 +23,11 @@ public class HistoryFacade {
   private final BasketService basketService;
   private final SessionManager sessionManager;
 
+  public List<HistoryEntity> getHistory(String sessionId) {
+    Session session = sessionManager.getSession(sessionId);
+    return historyService.getUserHistory(session.getUserId());
+  }
+
   @Transactional
   public void checkout(String sessionId) {
     Session session = sessionManager.getSession(sessionId);
@@ -32,26 +37,30 @@ public class HistoryFacade {
 
     String basketId = session.getCartId().toString();
 
-    List<BasketItemEntity> currentItems = basketService.findItemsByBasketId(basketId);
-    if (currentItems.isEmpty()) {
-      throw new RuntimeException("Cannot checkout an empty basket.");
+    // Get only CHECKED items for partial checkout
+    List<BasketItemEntity> checkedItems = basketService.findCheckedItemsByBasketId(basketId);
+    if (checkedItems.isEmpty()) {
+      throw new RuntimeException("No items selected for checkout. Please check at least one item.");
     }
 
     BigDecimal totalSpent =
-        currentItems.stream()
-            .map(
-                item ->
-                    BigDecimal.valueOf(item.getPrice().doubleValue())
-                        .multiply(BigDecimal.valueOf(item.getQuantity())))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+          checkedItems.stream()
+                  .map(
+                          item ->
+                                  BigDecimal.valueOf(item.getPrice().doubleValue())
+                                          .multiply(BigDecimal.valueOf(item.getQuantity())))
+                  .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-    historyService.archiveBasket(session.getUserId(), basketId, totalSpent);
-    sessionManager.update(UUID.fromString(sessionId), session);
+    // Archive only checked items
+    historyService.archiveCheckedItems(session.getUserId(), basketId, checkedItems, totalSpent);
+
+    // Remove only checked items from basket
+    basketService.removeCheckedItems(basketId);
+
+    // Check if basket still has unchecked items
+    List<BasketItemEntity> remainingItems = basketService.findItemsByBasketId(basketId);
+    if (remainingItems.isEmpty()) {
     sessionManager.removeCartIdAfterCheckout(sessionId);
-  }
-
-  public List<HistoryEntity> getHistory(String sessionId) {
-    Session session = sessionManager.getSession(sessionId);
-    return historyService.getUserHistory(session.getUserId());
+    }
   }
 }
